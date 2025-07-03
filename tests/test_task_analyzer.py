@@ -1,318 +1,389 @@
 """Tests for TaskAnalyzer."""
 
-import pytest
+import math
 import tempfile
-import pandas as pd
 from datetime import timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
 
+import pytest
 from src.tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
 
 
 class TestTaskAnalyzer:
     """Test class for TaskAnalyzer."""
 
-    def test_parse_time_duration_valid(self):
+    def test_parse_time_duration_valid(self) -> None:
         """Test parsing valid time duration strings."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
-        
-        assert analyzer._parse_time_duration("01:30:45") == timedelta(hours=1, minutes=30, seconds=45)
-        assert analyzer._parse_time_duration("00:00:00") == timedelta(0)
-        assert analyzer._parse_time_duration("12:59:59") == timedelta(hours=12, minutes=59, seconds=59)
 
-    def test_parse_time_duration_invalid(self):
+        assert analyzer._parse_time_duration("01:30:45") == timedelta(
+            hours=1, minutes=30, seconds=45
+        )
+        assert analyzer._parse_time_duration("00:00:00") == timedelta(0)
+        assert analyzer._parse_time_duration("12:59:59") == timedelta(
+            hours=12, minutes=59, seconds=59
+        )
+
+    def test_parse_time_duration_invalid(self) -> None:
         """Test parsing invalid time duration strings."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
-        
+
         assert analyzer._parse_time_duration("") == timedelta(0)
         assert analyzer._parse_time_duration("invalid") == timedelta(0)
         assert analyzer._parse_time_duration("1:2") == timedelta(0)
 
-    def test_parse_time_duration_nan(self):
+    def test_parse_time_duration_nan(self) -> None:
         """Test parsing NaN values."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
-        
-        assert analyzer._parse_time_duration(pd.NA) == timedelta(0)
 
-    def test_format_duration(self):
+        # Test with float NaN which is more common in real data
+        assert analyzer._parse_time_duration(math.nan) == timedelta(0)
+
+    def test_format_duration(self) -> None:
         """Test formatting timedelta objects."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
-        
-        assert analyzer._format_duration(timedelta(hours=1, minutes=30, seconds=45)) == "01:30:45"
-        assert analyzer._format_duration(timedelta(0)) == "00:00:00"
-        assert analyzer._format_duration(timedelta(hours=24, minutes=0, seconds=1)) == "24:00:01"
 
-    def test_analyze_by_project(self):
+        assert (
+            analyzer._format_duration(timedelta(hours=1, minutes=30, seconds=45))
+            == "01:30:45"
+        )
+        assert analyzer._format_duration(timedelta(0)) == "00:00:00"
+        assert (
+            analyzer._format_duration(timedelta(hours=24, minutes=0, seconds=1))
+            == "24:00:01"
+        )
+
+    def test_analyze_by_project(self) -> None:
         """Test project analysis with sample data."""
         # Create sample CSV data
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Project A,mode1,Mode 1,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj1,Project A,mode1,Mode 1,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-2025-07-01,task3,Task 3,prj2,Project B,mode2,Mode 2,,,,,00:30:00,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間,開始日時,終了日時\n"
+            "Project A,Mode 1,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00\n"
+            "Project A,Mode 1,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00\n"
+            "Project B,Mode 2,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project()
-            
+
             assert len(results) == 2
-            
+
             # Check Project A (should have 00:25:00 total)
             project_a = next(r for r in results if r["project"] == "Project A")
             assert project_a["total_time"] == "00:25:00"
             assert project_a["task_count"] == "2"
-            
+
             # Check Project B (should have 00:30:00 total)
             project_b = next(r for r in results if r["project"] == "Project B")
             assert project_b["total_time"] == "00:30:00"
             assert project_b["task_count"] == "1"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_project_sort_by_project(self):
+    def test_analyze_by_project_sort_by_project(self) -> None:
         """Test project analysis with project name sorting."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Z Project,mode1,Mode 1,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj2,A Project,mode2,Mode 2,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Z Project,Mode 1,00:15:00\n"
+            "A Project,Mode 2,00:10:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project(sort_by="project")
-            
+
             assert len(results) == 2
             assert results[0]["project"] == "A Project"
             assert results[1]["project"] == "Z Project"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_project_sort_by_name(self):
+    def test_analyze_by_project_sort_by_name(self) -> None:
         """Test project analysis with legacy name sorting (backward compatibility)."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Z Project,mode1,Mode 1,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj2,A Project,mode2,Mode 2,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Z Project,Mode 1,00:15:00\n"
+            "A Project,Mode 2,00:10:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project(sort_by="name")
-            
+
             assert len(results) == 2
             assert results[0]["project"] == "A Project"
             assert results[1]["project"] == "Z Project"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_display_json_output(self, capsys):
+    def test_display_json_output(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test JSON output format."""
         results = [
-            {"project": "Test Project", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "project": "Test Project",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         analyzer.display_json(results)
-        
+
         captured = capsys.readouterr()
         assert "Test Project" in captured.out
         assert "01:30:00" in captured.out
         assert "5" in captured.out
 
-    def test_display_csv_output(self, capsys):
+    def test_display_csv_output(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test CSV output format."""
         results = [
-            {"project": "Test Project", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "project": "Test Project",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         analyzer.display_csv(results)
-        
+
         captured = capsys.readouterr()
         assert "Project,Total Time,Task Count" in captured.out
         assert "Test Project,01:30:00,5" in captured.out
 
-    def test_analyze_by_mode(self):
+    def test_analyze_by_mode(self) -> None:
         """Test mode analysis with sample data."""
         # Create sample CSV data
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Project A,mode1,Focus Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj1,Project A,mode1,Focus Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-2025-07-01,task3,Task 3,prj2,Project B,mode2,Meeting Mode,,,,,00:30:00,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Project A,Focus Mode,00:15:00\n"
+            "Project A,Focus Mode,00:10:00\n"
+            "Project B,Meeting Mode,00:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_mode()
-            
+
             assert len(results) == 2
-            
+
             # Check Focus Mode (should have 00:25:00 total)
             focus_mode = next(r for r in results if r["mode"] == "Focus Mode")
             assert focus_mode["total_time"] == "00:25:00"
             assert focus_mode["task_count"] == "2"
-            
+
             # Check Meeting Mode (should have 00:30:00 total)
             meeting_mode = next(r for r in results if r["mode"] == "Meeting Mode")
             assert meeting_mode["total_time"] == "00:30:00"
             assert meeting_mode["task_count"] == "1"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_mode_sort_by_mode(self):
+    def test_analyze_by_mode_sort_by_mode(self) -> None:
         """Test mode analysis with mode name sorting."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Project A,mode1,Z Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj2,Project B,mode2,A Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Project A,Z Mode,00:15:00\n"
+            "Project B,A Mode,00:10:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_mode(sort_by="mode")
-            
+
             assert len(results) == 2
             assert results[0]["mode"] == "A Mode"
             assert results[1]["mode"] == "Z Mode"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_mode_sort_by_name(self):
+    def test_analyze_by_mode_sort_by_name(self) -> None:
         """Test mode analysis with name sorting."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Project A,mode1,Z Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj2,Project B,mode2,A Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Project A,Z Mode,00:15:00\n"
+            "Project B,A Mode,00:10:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_mode(sort_by="name")
-            
+
             assert len(results) == 2
             assert results[0]["mode"] == "A Mode"
             assert results[1]["mode"] == "Z Mode"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_display_table_mode(self):
+    def test_display_table_mode(self) -> None:
         """Test table display for mode analysis."""
         results = [
-            {"mode": "Test Mode", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "mode": "Test Mode",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         # This should not raise an exception
         analyzer.display_table(results, analysis_type="mode")
 
-    def test_display_json_mode_output(self, capsys):
+    def test_display_json_mode_output(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test JSON output format for mode analysis."""
         results = [
-            {"mode": "Test Mode", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "mode": "Test Mode",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         analyzer.display_json(results, analysis_type="mode")
-        
+
         captured = capsys.readouterr()
         assert "Test Mode" in captured.out
         assert "01:30:00" in captured.out
         assert "5" in captured.out
 
-    def test_display_csv_mode_output(self, capsys):
+    def test_display_csv_mode_output(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test CSV output format for mode analysis."""
         results = [
-            {"mode": "Test Mode", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "mode": "Test Mode",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         analyzer.display_csv(results, analysis_type="mode")
-        
+
         captured = capsys.readouterr()
         assert "Mode,Total Time,Task Count" in captured.out
         assert "Test Mode,01:30:00,5" in captured.out
 
-    def test_analyze_by_project_mode(self):
+    def test_analyze_by_project_mode(self) -> None:
         """Test project-mode analysis with sample data."""
         # Create sample CSV data
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Project A,mode1,Focus Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj1,Project A,mode1,Focus Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-2025-07-01,task3,Task 3,prj1,Project A,mode2,Meeting Mode,,,,,00:20:00,00:20:00,2025-07-01 09:30:00,2025-07-01 09:50:00,,,,0
-2025-07-01,task4,Task 4,prj2,Project B,mode1,Focus Mode,,,,,00:30:00,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Project A,Focus Mode,00:15:00\n"
+            "Project A,Focus Mode,00:10:00\n"
+            "Project A,Meeting Mode,00:20:00\n"
+            "Project B,Focus Mode,00:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project_mode()
-            
+
             assert len(results) == 3
-            
+
             # Check Project A + Focus Mode (should have 00:25:00 total)
-            project_a_focus = next(r for r in results if r["project"] == "Project A" and r["mode"] == "Focus Mode")
+            project_a_focus = next(
+                r
+                for r in results
+                if r["project"] == "Project A" and r["mode"] == "Focus Mode"
+            )
             assert project_a_focus["total_time"] == "00:25:00"
             assert project_a_focus["task_count"] == "2"
-            
+
             # Check Project A + Meeting Mode (should have 00:20:00 total)
-            project_a_meeting = next(r for r in results if r["project"] == "Project A" and r["mode"] == "Meeting Mode")
+            project_a_meeting = next(
+                r
+                for r in results
+                if r["project"] == "Project A" and r["mode"] == "Meeting Mode"
+            )
             assert project_a_meeting["total_time"] == "00:20:00"
             assert project_a_meeting["task_count"] == "1"
-            
+
             # Check Project B + Focus Mode (should have 00:30:00 total)
-            project_b_focus = next(r for r in results if r["project"] == "Project B" and r["mode"] == "Focus Mode")
+            project_b_focus = next(
+                r
+                for r in results
+                if r["project"] == "Project B" and r["mode"] == "Focus Mode"
+            )
             assert project_b_focus["total_time"] == "00:30:00"
             assert project_b_focus["task_count"] == "1"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_project_mode_sort_by_project(self):
+    def test_analyze_by_project_mode_sort_by_project(self) -> None:
         """Test project-mode analysis with project sorting."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Z Project,mode1,B Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj1,Z Project,mode2,A Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-2025-07-01,task3,Task 3,prj2,A Project,mode1,C Mode,,,,,00:30:00,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Z Project,B Mode,00:15:00\n"
+            "Z Project,A Mode,00:10:00\n"
+            "A Project,C Mode,00:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project_mode(sort_by="project")
-            
+
             assert len(results) == 3
             # First should be A Project (alphabetically first)
             assert results[0]["project"] == "A Project"
@@ -321,28 +392,31 @@ class TestTaskAnalyzer:
             assert results[1]["project"] == "Z Project"
             assert results[1]["mode"] == "A Mode"
             # Last should be Z Project with B Mode
-            assert results[2]["project"] == "Z Project" 
+            assert results[2]["project"] == "Z Project"
             assert results[2]["mode"] == "B Mode"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_project_mode_sort_by_mode(self):
+    def test_analyze_by_project_mode_sort_by_mode(self) -> None:
         """Test project-mode analysis with mode sorting."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Z Project,mode1,B Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj1,Z Project,mode2,A Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-2025-07-01,task3,Task 3,prj2,A Project,mode1,C Mode,,,,,00:30:00,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Z Project,B Mode,00:15:00\n"
+            "Z Project,A Mode,00:10:00\n"
+            "A Project,C Mode,00:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project_mode(sort_by="mode")
-            
+
             assert len(results) == 3
             # First should be A Mode (alphabetically first)
             assert results[0]["mode"] == "A Mode"
@@ -351,28 +425,31 @@ class TestTaskAnalyzer:
             assert results[1]["mode"] == "B Mode"
             assert results[1]["project"] == "Z Project"
             # Last should be C Mode
-            assert results[2]["mode"] == "C Mode" 
+            assert results[2]["mode"] == "C Mode"
             assert results[2]["project"] == "A Project"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_analyze_by_project_mode_sort_by_name(self):
+    def test_analyze_by_project_mode_sort_by_name(self) -> None:
         """Test project-mode analysis with name sorting."""
-        csv_data = """タイムライン日付,タスクID,タスク名,プロジェクトID,プロジェクト名,モードID,モード名,タグID,タグ名,ルーチンID,ルーチン名,見積時間,実績時間,開始日時,終了日時,リンク,アイコン,カラー,お気に入り
-2025-07-01,task1,Task 1,prj1,Z Project,mode1,B Mode,,,,,00:10:00,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00,,,,0
-2025-07-01,task2,Task 2,prj1,Z Project,mode2,A Mode,,,,,00:05:00,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00,,,,0
-2025-07-01,task3,Task 3,prj2,A Project,mode1,C Mode,,,,,00:30:00,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00,,,,0
-"""
-        
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False, encoding='utf-8') as f:
+        csv_data = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Z Project,B Mode,00:15:00\n"
+            "Z Project,A Mode,00:10:00\n"
+            "A Project,C Mode,00:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_data)
             csv_path = Path(f.name)
-        
+
         try:
             analyzer = TaskAnalyzer(csv_path)
             results = analyzer.analyze_by_project_mode(sort_by="name")
-            
+
             assert len(results) == 3
             # First should be A Project + C Mode (alphabetically first)
             assert results[0]["project"] == "A Project"
@@ -381,46 +458,68 @@ class TestTaskAnalyzer:
             assert results[1]["project"] == "Z Project"
             assert results[1]["mode"] == "A Mode"
             # Third should be Z Project + B Mode
-            assert results[2]["project"] == "Z Project" 
+            assert results[2]["project"] == "Z Project"
             assert results[2]["mode"] == "B Mode"
-            
+
         finally:
             csv_path.unlink()
 
-    def test_display_table_project_mode(self):
+    def test_display_table_project_mode(self) -> None:
         """Test table display for project-mode analysis."""
         results = [
-            {"project": "Test Project", "mode": "Test Mode", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "project": "Test Project",
+                "mode": "Test Mode",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         # This should not raise an exception
         analyzer.display_table(results, analysis_type="project-mode")
 
-    def test_display_json_project_mode_output(self, capsys):
+    def test_display_json_project_mode_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test JSON output format for project-mode analysis."""
         results = [
-            {"project": "Test Project", "mode": "Test Mode", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "project": "Test Project",
+                "mode": "Test Mode",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         analyzer.display_json(results, analysis_type="project-mode")
-        
+
         captured = capsys.readouterr()
         assert "Test Project" in captured.out
         assert "Test Mode" in captured.out
         assert "01:30:00" in captured.out
         assert "5" in captured.out
 
-    def test_display_csv_project_mode_output(self, capsys):
+    def test_display_csv_project_mode_output(
+        self, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         """Test CSV output format for project-mode analysis."""
         results = [
-            {"project": "Test Project", "mode": "Test Mode", "total_time": "01:30:00", "task_count": "5", "total_seconds": 5400}
+            {
+                "project": "Test Project",
+                "mode": "Test Mode",
+                "total_time": "01:30:00",
+                "task_count": "5",
+                "total_seconds": 5400,
+            }
         ]
-        
+
         analyzer = TaskAnalyzer(Path("dummy.csv"))
         analyzer.display_csv(results, analysis_type="project-mode")
-        
+
         captured = capsys.readouterr()
         assert "Project,Mode,Total Time,Task Count" in captured.out
         assert "Test Project,Test Mode,01:30:00,5" in captured.out

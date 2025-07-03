@@ -1,8 +1,8 @@
 """Command line interface for TCC Analyzer."""
 
-import click
 from pathlib import Path
-from typing import Optional
+
+import click
 
 from .analyzers.task_analyzer import TaskAnalyzer
 
@@ -46,16 +46,16 @@ def task(
     reverse: bool,
     group_by: str,
 ) -> None:
-    """Analyze TaskChute Cloud task logs and show project-wise, mode-wise, or project-mode combination time allocation."""
+    """Analyze TaskChute Cloud task logs with project/mode/project-mode grouping."""
     analyzer = TaskAnalyzer(csv_file)
-    
+
     if group_by == "mode":
         results = analyzer.analyze_by_mode(sort_by=sort_by, reverse=reverse)
     elif group_by == "project-mode":
         results = analyzer.analyze_by_project_mode(sort_by=sort_by, reverse=reverse)
     else:
         results = analyzer.analyze_by_project(sort_by=sort_by, reverse=reverse)
-    
+
     if output_format == "table":
         analyzer.display_table(results, analysis_type=group_by)
     elif output_format == "json":
