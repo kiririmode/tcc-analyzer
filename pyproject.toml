@@ -1,0 +1,20 @@
+[project]
+name = "tcc-analyzer"
+version = "0.1.0"
+description = "A Python CLI tool for analyzing TaskChute Cloud logs"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.1.0",
+    "pandas>=2.0.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+tcc-analyzer = "tcc_analyzer.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+    "pytest-cov>=6.2.1",
+]

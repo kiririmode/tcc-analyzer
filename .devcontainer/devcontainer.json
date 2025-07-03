@@ -1,0 +1,46 @@
+{
+  "name": "VTT2Minutes Python Development",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "options": [
+      "--no-cache"
+    ]
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "24"
+    },
+    "ghcr.io/devcontainers/features/aws-cli:1": {
+      "version": "latest"
+    },
+    "ghcr.io/devcontainers/features/rust:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "ms-vscode.vscode-json",
+        "streetsidesoftware.code-spell-checker",
+        "GitHub.copilot",
+        "GitHub.copilot-chat"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/home/vscode/.cargo/bin/python",
+        "python.linting.enabled": true,
+        "python.linting.ruffEnabled": true,
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+          "source.organizeImports": true
+        },
+        "files.associations": {
+          "*.vtt": "plaintext"
+        }
+      }
+    }
+  },
+  "forwardPorts": [],
+  "postCreateCommand": "uv sync --frozen --extra dev && npm install -g @anthropic-ai/claude-code && ./setup-hooks.sh",
+  "remoteUser": "vscode"
+}
