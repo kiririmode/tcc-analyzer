@@ -101,7 +101,9 @@ class TaskAnalyzer:
         # Sort results
         if sort_by == "time":
             results.sort(key=lambda x: x["total_seconds"], reverse=reverse)
-        else:  # sort by name
+        elif sort_by == "project":
+            results.sort(key=lambda x: x["project"], reverse=reverse)
+        else:  # default to project for this analysis type
             results.sort(key=lambda x: x["project"], reverse=reverse)
         
         return results
@@ -148,8 +150,69 @@ class TaskAnalyzer:
         # Sort results
         if sort_by == "time":
             results.sort(key=lambda x: x["total_seconds"], reverse=reverse)
-        else:  # sort by name
+        elif sort_by == "mode":
             results.sort(key=lambda x: x["mode"], reverse=reverse)
+        else:  # default to mode for this analysis type
+            results.sort(key=lambda x: x["mode"], reverse=reverse)
+        
+        return results
+    
+    def analyze_by_project_mode(
+        self, 
+        sort_by: str = "time", 
+        reverse: bool = False
+    ) -> List[Dict[str, str]]:
+        """Analyze tasks by project and mode combination and return aggregated results."""
+        data = self._load_data()
+        
+        # Group by project and mode name combination and calculate total time
+        project_mode_times: Dict[str, timedelta] = {}
+        project_mode_task_counts: Dict[str, int] = {}
+        project_mode_pairs: Dict[str, Tuple[str, str]] = {}
+        
+        for _, row in data.iterrows():
+            project_name = row["プロジェクト名"]
+            mode_name = row["モード名"]
+            actual_time = row["実績時間"]
+            
+            # Skip rows without project or mode name
+            if pd.isna(project_name) or project_name == "" or pd.isna(mode_name) or mode_name == "":
+                continue
+            
+            # Create a composite key for project-mode combination
+            composite_key = f"{project_name} | {mode_name}"
+            duration = self._parse_time_duration(actual_time)
+            
+            if composite_key not in project_mode_times:
+                project_mode_times[composite_key] = timedelta(0)
+                project_mode_task_counts[composite_key] = 0
+                project_mode_pairs[composite_key] = (project_name, mode_name)
+            
+            project_mode_times[composite_key] += duration
+            project_mode_task_counts[composite_key] += 1
+        
+        # Convert to list of dictionaries
+        results = []
+        for composite_key, total_time in project_mode_times.items():
+            project_name, mode_name = project_mode_pairs[composite_key]
+            results.append({
+                "project": project_name,
+                "mode": mode_name,
+                "project_mode": composite_key,
+                "total_time": self._format_duration(total_time),
+                "total_seconds": int(total_time.total_seconds()),
+                "task_count": str(project_mode_task_counts[composite_key])
+            })
+        
+        # Sort results
+        if sort_by == "time":
+            results.sort(key=lambda x: x["total_seconds"], reverse=reverse)
+        elif sort_by == "project":
+            results.sort(key=lambda x: (x["project"], x["mode"]), reverse=reverse)
+        elif sort_by == "mode":
+            results.sort(key=lambda x: (x["mode"], x["project"]), reverse=reverse)
+        else:  # default to project-mode combination
+            results.sort(key=lambda x: (x["project"], x["mode"]), reverse=reverse)
         
         return results
     
@@ -158,21 +221,41 @@ class TaskAnalyzer:
         if analysis_type == "mode":
             table = Table(title="TaskChute Cloud - Mode Time Analysis")
             table.add_column("Mode", style="cyan", no_wrap=True)
-            column_key = "mode"
+            table.add_column("Total Time", style="green")
+            table.add_column("Task Count", style="yellow")
+            
+            for result in results:
+                table.add_row(
+                    result["mode"],
+                    result["total_time"],
+                    result["task_count"]
+                )
+        elif analysis_type == "project-mode":
+            table = Table(title="TaskChute Cloud - Project × Mode Time Analysis")
+            table.add_column("Project", style="cyan", no_wrap=True)
+            table.add_column("Mode", style="magenta", no_wrap=True)
+            table.add_column("Total Time", style="green")
+            table.add_column("Task Count", style="yellow")
+            
+            for result in results:
+                table.add_row(
+                    result["project"],
+                    result["mode"],
+                    result["total_time"],
+                    result["task_count"]
+                )
         else:
             table = Table(title="TaskChute Cloud - Project Time Analysis")
             table.add_column("Project", style="cyan", no_wrap=True)
-            column_key = "project"
-        
-        table.add_column("Total Time", style="green")
-        table.add_column("Task Count", style="yellow")
-        
-        for result in results:
-            table.add_row(
-                result[column_key],
-                result["total_time"],
-                result["task_count"]
-            )
+            table.add_column("Total Time", style="green")
+            table.add_column("Task Count", style="yellow")
+            
+            for result in results:
+                table.add_row(
+                    result["project"],
+                    result["total_time"],
+                    result["task_count"]
+                )
         
         self.console.print(table)
     
@@ -183,6 +266,13 @@ class TaskAnalyzer:
         for result in results:
             if analysis_type == "mode":
                 json_results.append({
+                    "mode": result["mode"],
+                    "total_time": result["total_time"],
+                    "task_count": int(result["task_count"])
+                })
+            elif analysis_type == "project-mode":
+                json_results.append({
+                    "project": result["project"],
                     "mode": result["mode"],
                     "total_time": result["total_time"],
                     "task_count": int(result["task_count"])
@@ -202,6 +292,10 @@ class TaskAnalyzer:
             print("Mode,Total Time,Task Count")
             for result in results:
                 print(f"{result['mode']},{result['total_time']},{result['task_count']}")
+        elif analysis_type == "project-mode":
+            print("Project,Mode,Total Time,Task Count")
+            for result in results:
+                print(f"{result['project']},{result['mode']},{result['total_time']},{result['task_count']}")
         else:
             print("Project,Total Time,Task Count")
             for result in results:

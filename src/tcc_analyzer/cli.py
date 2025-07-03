@@ -24,9 +24,9 @@ def main() -> None:
 )
 @click.option(
     "--sort-by",
-    type=click.Choice(["time", "name"]),
+    type=click.Choice(["time", "project", "mode"]),
     default="time",
-    help="Sort results by time or project/mode name",
+    help="Sort results by time, project name, or mode name",
 )
 @click.option(
     "--reverse",
@@ -35,9 +35,9 @@ def main() -> None:
 )
 @click.option(
     "--group-by",
-    type=click.Choice(["project", "mode"]),
+    type=click.Choice(["project", "mode", "project-mode"]),
     default="project",
-    help="Group results by project or mode",
+    help="Group results by project, mode, or project-mode combination",
 )
 def task(
     csv_file: Path,
@@ -46,11 +46,13 @@ def task(
     reverse: bool,
     group_by: str,
 ) -> None:
-    """Analyze TaskChute Cloud task logs and show project-wise or mode-wise time allocation."""
+    """Analyze TaskChute Cloud task logs and show project-wise, mode-wise, or project-mode combination time allocation."""
     analyzer = TaskAnalyzer(csv_file)
     
     if group_by == "mode":
         results = analyzer.analyze_by_mode(sort_by=sort_by, reverse=reverse)
+    elif group_by == "project-mode":
+        results = analyzer.analyze_by_project_mode(sort_by=sort_by, reverse=reverse)
     else:
         results = analyzer.analyze_by_project(sort_by=sort_by, reverse=reverse)
     
