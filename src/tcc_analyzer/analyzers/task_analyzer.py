@@ -106,38 +106,103 @@ class TaskAnalyzer:
         
         return results
     
-    def display_table(self, results: List[Dict[str, str]]) -> None:
-        """Display results as a rich table."""
-        table = Table(title="TaskChute Cloud - Project Time Analysis")
+    def analyze_by_mode(
+        self, 
+        sort_by: str = "time", 
+        reverse: bool = False
+    ) -> List[Dict[str, str]]:
+        """Analyze tasks by mode and return aggregated results."""
+        data = self._load_data()
         
-        table.add_column("Project", style="cyan", no_wrap=True)
+        # Group by mode name and calculate total time
+        mode_times: Dict[str, timedelta] = {}
+        mode_task_counts: Dict[str, int] = {}
+        
+        for _, row in data.iterrows():
+            mode_name = row["モード名"]
+            actual_time = row["実績時間"]
+            
+            # Skip rows without mode name
+            if pd.isna(mode_name) or mode_name == "":
+                continue
+            
+            duration = self._parse_time_duration(actual_time)
+            
+            if mode_name not in mode_times:
+                mode_times[mode_name] = timedelta(0)
+                mode_task_counts[mode_name] = 0
+            
+            mode_times[mode_name] += duration
+            mode_task_counts[mode_name] += 1
+        
+        # Convert to list of dictionaries
+        results = []
+        for mode_name, total_time in mode_times.items():
+            results.append({
+                "mode": mode_name,
+                "total_time": self._format_duration(total_time),
+                "total_seconds": int(total_time.total_seconds()),
+                "task_count": str(mode_task_counts[mode_name])
+            })
+        
+        # Sort results
+        if sort_by == "time":
+            results.sort(key=lambda x: x["total_seconds"], reverse=reverse)
+        else:  # sort by name
+            results.sort(key=lambda x: x["mode"], reverse=reverse)
+        
+        return results
+    
+    def display_table(self, results: List[Dict[str, str]], analysis_type: str = "project") -> None:
+        """Display results as a rich table."""
+        if analysis_type == "mode":
+            table = Table(title="TaskChute Cloud - Mode Time Analysis")
+            table.add_column("Mode", style="cyan", no_wrap=True)
+            column_key = "mode"
+        else:
+            table = Table(title="TaskChute Cloud - Project Time Analysis")
+            table.add_column("Project", style="cyan", no_wrap=True)
+            column_key = "project"
+        
         table.add_column("Total Time", style="green")
         table.add_column("Task Count", style="yellow")
         
         for result in results:
             table.add_row(
-                result["project"],
+                result[column_key],
                 result["total_time"],
                 result["task_count"]
             )
         
         self.console.print(table)
     
-    def display_json(self, results: List[Dict[str, str]]) -> None:
+    def display_json(self, results: List[Dict[str, str]], analysis_type: str = "project") -> None:
         """Display results as JSON."""
         # Remove internal fields for JSON output
         json_results = []
         for result in results:
-            json_results.append({
-                "project": result["project"],
-                "total_time": result["total_time"],
-                "task_count": int(result["task_count"])
-            })
+            if analysis_type == "mode":
+                json_results.append({
+                    "mode": result["mode"],
+                    "total_time": result["total_time"],
+                    "task_count": int(result["task_count"])
+                })
+            else:
+                json_results.append({
+                    "project": result["project"],
+                    "total_time": result["total_time"],
+                    "task_count": int(result["task_count"])
+                })
         
         print(json.dumps(json_results, ensure_ascii=False, indent=2))
     
-    def display_csv(self, results: List[Dict[str, str]]) -> None:
+    def display_csv(self, results: List[Dict[str, str]], analysis_type: str = "project") -> None:
         """Display results as CSV."""
-        print("Project,Total Time,Task Count")
-        for result in results:
-            print(f"{result['project']},{result['total_time']},{result['task_count']}")
+        if analysis_type == "mode":
+            print("Mode,Total Time,Task Count")
+            for result in results:
+                print(f"{result['mode']},{result['total_time']},{result['task_count']}")
+        else:
+            print("Project,Total Time,Task Count")
+            for result in results:
+                print(f"{result['project']},{result['total_time']},{result['task_count']}")

@@ -26,29 +26,40 @@ def main() -> None:
     "--sort-by",
     type=click.Choice(["time", "name"]),
     default="time",
-    help="Sort results by time or project name",
+    help="Sort results by time or project/mode name",
 )
 @click.option(
     "--reverse",
     is_flag=True,
     help="Reverse the sort order",
 )
+@click.option(
+    "--group-by",
+    type=click.Choice(["project", "mode"]),
+    default="project",
+    help="Group results by project or mode",
+)
 def task(
     csv_file: Path,
     output_format: str,
     sort_by: str,
     reverse: bool,
+    group_by: str,
 ) -> None:
-    """Analyze TaskChute Cloud task logs and show project-wise time allocation."""
+    """Analyze TaskChute Cloud task logs and show project-wise or mode-wise time allocation."""
     analyzer = TaskAnalyzer(csv_file)
-    results = analyzer.analyze_by_project(sort_by=sort_by, reverse=reverse)
+    
+    if group_by == "mode":
+        results = analyzer.analyze_by_mode(sort_by=sort_by, reverse=reverse)
+    else:
+        results = analyzer.analyze_by_project(sort_by=sort_by, reverse=reverse)
     
     if output_format == "table":
-        analyzer.display_table(results)
+        analyzer.display_table(results, analysis_type=group_by)
     elif output_format == "json":
-        analyzer.display_json(results)
+        analyzer.display_json(results, analysis_type=group_by)
     elif output_format == "csv":
-        analyzer.display_csv(results)
+        analyzer.display_csv(results, analysis_type=group_by)
 
 
 if __name__ == "__main__":
