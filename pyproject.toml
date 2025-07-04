@@ -6,8 +6,11 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "click>=8.1.0",
+    "matplotlib>=3.10.3",
     "pandas>=2.0.0",
     "rich>=13.0.0",
+    "scipy>=1.15.3",
+    "seaborn>=0.13.2",
 ]
 
 [project.scripts]
@@ -73,38 +76,3 @@ quote-style = "double"
 indent-style = "space"
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-include = ["src", "tests"]
-exclude = ["**/__pycache__"]
-strict = ["src"]
-typeCheckingMode = "strict"
-reportMissingImports = true
-reportMissingTypeStubs = false
-reportUnknownMemberType = false
-reportUnknownParameterType = false
-reportUnnecessaryTypeIgnore = true
-reportUnusedImport = true
-reportUnusedVariable = true
-reportDuplicateImport = true
-reportPrivateUsage = false
-reportIncompatibleMethodOverride = true
-reportIncompatibleVariableOverride = true
-reportOverlappingOverload = true
-reportUntypedFunctionDecorator = false
-reportUnknownLambdaType = true
-reportUnknownVariableType = true
-reportUnknownArgumentType = true
-reportMissingParameterType = true
-reportMissingTypeArgument = true
-reportInvalidTypeVarUse = true
-reportCallInDefaultInitializer = true
-reportUnnecessaryIsInstance = true
-reportUnnecessaryCast = true
-reportUnnecessaryComparison = true
-reportAssertAlwaysTrue = true
-reportSelfClsParameterName = true
-reportUnusedExpression = true
-pythonVersion = "3.10"

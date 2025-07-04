@@ -358,11 +358,28 @@ class TaskAnalyzer:
             },
         }[analysis_type]
 
+    def _prepare_output_data(
+        self, results: list[dict[str, Any]], analysis_type: str, base_time: str | None
+    ) -> tuple[dict[str, Any], list[list[str]]]:
+        """Prepare data for both table and CSV output."""
+        config = self._get_analysis_config(analysis_type)
+
+        # Prepare row data
+        rows = []
+        for result in results:
+            row_data = [str(result[field]) for field in config["fields"]]
+            if base_time is not None:
+                row_data.append(str(result["percentage"]))
+            rows.append(row_data)
+
+        return config, rows
+
     def _create_table(
         self, results: list[dict[str, Any]], analysis_type: str, base_time: str | None
     ) -> Table:
         """Create table for analysis results."""
-        config = self._get_analysis_config(analysis_type)
+        config, rows = self._prepare_output_data(results, analysis_type, base_time)
+
         title = config["title"]
         if base_time is not None:
             title += f" (Base: {base_time})"
@@ -386,10 +403,7 @@ class TaskAnalyzer:
             )
 
         # Add rows
-        for result in results:
-            row_data = [str(result[field]) for field in config["fields"]]
-            if base_time is not None:
-                row_data.append(str(result["percentage"]))
+        for row_data in rows:
             table.add_row(*row_data)
 
         return table
@@ -452,7 +466,7 @@ class TaskAnalyzer:
         self, results: list[dict[str, Any]], analysis_type: str, base_time: str | None
     ) -> None:
         """Print CSV output for analysis results."""
-        config = self._get_analysis_config(analysis_type)
+        config, rows = self._prepare_output_data(results, analysis_type, base_time)
 
         # Add base time information as comment if provided
         if base_time is not None:
@@ -463,10 +477,7 @@ class TaskAnalyzer:
             header += ",Percentage"
         print(header)
 
-        for result in results:
-            row_values = [str(result[field]) for field in config["fields"]]
-            if base_time is not None:
-                row_values.append(str(result["percentage"]))
+        for row_values in rows:
             print(",".join(row_values))
 
     def display_csv(
