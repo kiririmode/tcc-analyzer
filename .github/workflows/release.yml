@@ -1,0 +1,208 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.0.0, v1.2.3, etc.
+
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  build:
+    name: Build executable for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact_name: tcc-analyzer
+            asset_name: tcc-analyzer-linux-x64
+          - os: windows-latest
+            platform: windows
+            artifact_name: tcc-analyzer.exe
+            asset_name: tcc-analyzer-windows-x64.exe
+          - os: macos-latest
+            platform: macos
+            artifact_name: tcc-analyzer
+            asset_name: tcc-analyzer-macos-x64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run tests
+      run: |
+        uv run --frozen pytest
+
+    - name: Build executable
+      run: |
+        uv run python scripts/build-executable.py --platform ${{ matrix.platform }}
+
+    - name: Verify executable
+      shell: bash
+      run: |
+        if [[ "${{ matrix.platform }}" == "windows" ]]; then
+          ./dist/tcc-analyzer.exe --version
+        else
+          ./dist/tcc-analyzer --version
+        fi
+
+    - name: Package executable (Linux/macOS)
+      if: matrix.platform != 'windows'
+      run: |
+        cd dist
+        tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+        echo "ASSET_PATH=dist/${{ matrix.asset_name }}.tar.gz" >> $GITHUB_ENV
+        echo "ASSET_MIME=application/gzip" >> $GITHUB_ENV
+
+    - name: Package executable (Windows)
+      if: matrix.platform == 'windows'
+      run: |
+        cd dist
+        7z a ${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}
+        echo "ASSET_PATH=dist/${{ matrix.asset_name }}.zip" >> $GITHUB_ENV
+        echo "ASSET_MIME=application/zip" >> $GITHUB_ENV
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.asset_name }}
+        path: ${{ env.ASSET_PATH }}
+        retention-days: 7
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required for creating releases
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history for release notes
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_OUTPUT
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: List downloaded artifacts
+      run: |
+        find artifacts -type f -name "*" | sort
+
+    - name: Generate release notes
+      id: release_notes
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+
+        # Get the previous tag
+        PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${VERSION}$" | head -n1)
+
+        if [ -z "$PREVIOUS_TAG" ]; then
+          echo "This is the first release"
+          CHANGELOG="🎉 Initial release of TCC Analyzer"
+        else
+          echo "Generating changelog from $PREVIOUS_TAG to $VERSION"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..$VERSION)
+        fi
+
+        # Create release notes
+        cat > release_notes.md << EOF
+        # TCC Analyzer ${{ steps.version.outputs.VERSION_NUMBER }}
+
+        A Python CLI tool for analyzing and visualizing TaskChute Cloud logs.
+
+        ## 📥 Downloads
+
+        Choose the appropriate executable for your platform:
+
+        - **Linux (x64)**: \`tcc-analyzer-linux-x64.tar.gz\`
+        - **Windows (x64)**: \`tcc-analyzer-windows-x64.exe.zip\`
+        - **macOS (x64)**: \`tcc-analyzer-macos-x64.tar.gz\`
+
+        ## 🚀 Quick Start
+
+        ### Linux/macOS
+        \`\`\`bash
+        # Extract and run
+        tar -xzf tcc-analyzer-linux-x64.tar.gz  # or macos version
+        ./tcc-analyzer task your-data.csv --base-time 08:00
+        \`\`\`
+
+        ### Windows
+        \`\`\`cmd
+        # Extract and run
+        # Extract tcc-analyzer-windows-x64.exe.zip
+        tcc-analyzer.exe task your-data.csv --base-time 08:00
+        \`\`\`
+
+        ## 📋 Features
+
+        - Analyze TaskChute Cloud CSV exports
+        - Project, mode, and project×mode analysis
+        - Multiple output formats (table, JSON, CSV)
+        - Base time percentage calculations
+        - Flexible time input (HH:MM or HH:MM:SS)
+        - Comprehensive error validation
+
+        ## 📝 Changes
+
+        $CHANGELOG
+
+        ## 🔧 System Requirements
+
+        - **Linux**: glibc 2.17+ (most modern distributions)
+        - **Windows**: Windows 10+ (64-bit)
+        - **macOS**: macOS 10.15+ (Catalina)
+
+        No Python installation required - these are standalone executables.
+
+        ---
+
+        For more information, see the [README](https://github.com/kiririmode/tcc-analyzer/blob/main/README.md) and [documentation](https://github.com/kiririmode/tcc-analyzer/blob/main/BUILD.md).
+        EOF
+
+        echo "RELEASE_NOTES_FILE=release_notes.md" >> $GITHUB_OUTPUT
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: TCC Analyzer ${{ steps.version.outputs.VERSION_NUMBER }}
+        body_path: ${{ steps.release_notes.outputs.RELEASE_NOTES_FILE }}
+        draft: false
+        prerelease: ${{ contains(steps.version.outputs.VERSION, '-') }}
+        files: |
+          artifacts/tcc-analyzer-linux-x64/tcc-analyzer-linux-x64.tar.gz
+          artifacts/tcc-analyzer-windows-x64.exe/tcc-analyzer-windows-x64.exe.zip
+          artifacts/tcc-analyzer-macos-x64/tcc-analyzer-macos-x64.tar.gz
+        generate_release_notes: false  # We provide our own
+
+    - name: Update latest release info
+      run: |
+        echo "✅ Release ${{ steps.version.outputs.VERSION }} created successfully!"
+        echo "📦 Assets uploaded: 3 platform executables"

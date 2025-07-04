@@ -153,6 +153,22 @@ uv run pytest --cov=src --cov-report=html
 uv run pytest tests/test_task_analyzer.py -v
 ```
 
+### Building Executables
+
+Build standalone executables for distribution:
+
+```bash
+# Build for current platform
+uv run python scripts/build-executable.py
+
+# Build for specific platform (must run on target OS)
+uv run python scripts/build-executable.py --platform linux
+uv run python scripts/build-executable.py --platform windows
+uv run python scripts/build-executable.py --platform macos
+```
+
+The executable will be created in `dist/` directory. See [BUILD.md](BUILD.md) for detailed build instructions and cross-platform notes.
+
 ## 📂 Project Structure
 
 ```
@@ -160,17 +176,47 @@ tcc-analyzer/
 ├── src/
 │   └── tcc_analyzer/
 │       ├── __init__.py
+│       ├── __main__.py         # Executable entry point
 │       ├── cli.py              # Command line interface
 │       └── analyzers/
 │           ├── __init__.py
 │           └── task_analyzer.py # Core analysis logic
 ├── tests/
-│   └── test_task_analyzer.py   # Comprehensive test suite
+│   ├── test_task_analyzer.py   # Analyzer test suite
+│   └── test_cli.py             # CLI test suite
+├── scripts/
+│   └── build-executable.py     # Executable build script
 ├── logs/                       # Sample CSV files
-├── scripts/                    # Development scripts
+├── dist/                       # Built executables (created during build)
 ├── .github/workflows/          # CI/CD configuration
+├── build.spec                  # PyInstaller configuration
+├── version_info.txt            # Windows executable version info
+├── BUILD.md                    # Executable build documentation
+├── CLAUDE.md                   # Development guidelines
 ├── pyproject.toml              # Project configuration
 └── README.md
+```
+
+## 🚀 Releases
+
+TCC Analyzer uses automated releases via GitHub Actions. Each release includes standalone executables for Linux, Windows, and macOS.
+
+### Latest Release
+
+Download the latest version from [GitHub Releases](https://github.com/kiririmode/tcc-analyzer/releases/latest):
+
+- **Linux**: `tcc-analyzer-linux-x64.tar.gz`
+- **Windows**: `tcc-analyzer-windows-x64.exe.zip`
+- **macOS**: `tcc-analyzer-macos-x64.tar.gz`
+
+### Creating Releases
+
+For maintainers, see [RELEASE.md](RELEASE.md) for the complete release process.
+
+Quick release:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ## 🤝 Contributing

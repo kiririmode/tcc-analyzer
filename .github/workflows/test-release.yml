@@ -1,0 +1,173 @@
+name: Test Release Workflow
+
+# This workflow tests the release process without actually creating a release
+# Useful for testing the build and packaging process
+
+on:
+  workflow_dispatch:  # Manual trigger only
+    inputs:
+      test_version:
+        description: 'Test version (e.g., v1.0.0-test)'
+        required: true
+        default: 'v1.0.0-test'
+
+env:
+  PYTHON_VERSION: '3.10'
+
+jobs:
+  test-build:
+    name: Test build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux
+            artifact_name: tcc-analyzer
+            asset_name: tcc-analyzer-linux-x64
+          - os: windows-latest
+            platform: windows
+            artifact_name: tcc-analyzer.exe
+            asset_name: tcc-analyzer-windows-x64.exe
+          - os: macos-latest
+            platform: macos
+            artifact_name: tcc-analyzer
+            asset_name: tcc-analyzer-macos-x64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+
+    - name: Run tests
+      run: |
+        uv run --frozen pytest
+
+    - name: Build executable
+      run: |
+        uv run python scripts/build-executable.py --platform ${{ matrix.platform }}
+
+    - name: Verify executable
+      shell: bash
+      run: |
+        if [[ "${{ matrix.platform }}" == "windows" ]]; then
+          ./dist/tcc-analyzer.exe --version
+          ./dist/tcc-analyzer.exe --help
+        else
+          ./dist/tcc-analyzer --version
+          ./dist/tcc-analyzer --help
+        fi
+
+    - name: Package executable (Linux/macOS)
+      if: matrix.platform != 'windows'
+      run: |
+        cd dist
+        tar -czf ${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
+
+    - name: Package executable (Windows)
+      if: matrix.platform == 'windows'
+      run: |
+        cd dist
+        7z a ${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}
+
+    - name: Upload test artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-release-${{ matrix.asset_name }}
+        path: dist/${{ matrix.asset_name }}.*
+        retention-days: 7
+
+  test-release-notes:
+    name: Test release notes generation
+    runs-on: ubuntu-latest
+    needs: test-build
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch full history
+
+    - name: Extract version from input
+      id: version
+      run: |
+        VERSION="${{ github.event.inputs.test_version }}"
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "VERSION_NUMBER=${VERSION#v}" >> $GITHUB_OUTPUT
+
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: test-artifacts
+
+    - name: List downloaded artifacts
+      run: |
+        find test-artifacts -type f -name "*" | sort
+
+    - name: Generate test release notes
+      run: |
+        VERSION="${{ steps.version.outputs.VERSION }}"
+
+        # Get the latest actual tag for changelog
+        LATEST_TAG=$(git tag --sort=-version:refname | head -n1)
+
+        if [ -z "$LATEST_TAG" ]; then
+          echo "No previous tags found"
+          CHANGELOG="🎉 Initial test release"
+        else
+          echo "Generating test changelog from $LATEST_TAG to HEAD"
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" $LATEST_TAG..HEAD | head -10)
+        fi
+
+        # Create test release notes
+        cat > test_release_notes.md << EOF
+        # TCC Analyzer ${{ steps.version.outputs.VERSION_NUMBER }} (TEST)
+
+        ⚠️ **This is a test release for validation purposes only**
+
+        ## 📥 Test Downloads
+
+        - **Linux (x64)**: \`tcc-analyzer-linux-x64.tar.gz\`
+        - **Windows (x64)**: \`tcc-analyzer-windows-x64.exe.zip\`
+        - **macOS (x64)**: \`tcc-analyzer-macos-x64.tar.gz\`
+
+        ## 📝 Recent Changes (Test)
+
+        $CHANGELOG
+
+        ## ✅ Test Results
+
+        - ✅ Multi-platform builds successful
+        - ✅ Executable functionality verified
+        - ✅ Packaging process working
+        - ✅ Release notes generation working
+
+        ---
+
+        This test validates the release workflow without creating an actual GitHub release.
+        EOF
+
+        echo "Test release notes generated:"
+        cat test_release_notes.md
+
+    - name: Summary
+      run: |
+        echo "✅ Test release workflow completed successfully!"
+        echo "🔧 Version tested: ${{ steps.version.outputs.VERSION }}"
+        echo "📦 Platform builds: 3 (Linux, Windows, macOS)"
+        echo "📝 Release notes: Generated"
+        echo ""
+        echo "The actual release workflow is ready to use with version tags!"

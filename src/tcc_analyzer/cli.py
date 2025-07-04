@@ -5,11 +5,11 @@ from pathlib import Path
 
 import click
 
-from .analyzers.task_analyzer import TaskAnalyzer
+from tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
 
 
 @click.group()
-@click.version_option()
+@click.version_option(version="1.0.0", package_name="tcc-analyzer")
 def main() -> None:
     """TCC Analyzer - A Python CLI tool for analyzing TaskChute Cloud logs."""
     pass
