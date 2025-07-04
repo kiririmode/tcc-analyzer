@@ -167,6 +167,5 @@ This document contains critical information about working with this codebase. Fo
 - Python versions tested: 3.10, 3.11, 3.12
 - Jobs:
   1. **Test Job**: Runs ruff linting, ruff formatting, pyright type checking, pytest with coverage
-  2. **Pre-commit Job**: Validates all pre-commit hooks
 - Code coverage reporting with Codecov integration
 - All checks must pass for PR merge

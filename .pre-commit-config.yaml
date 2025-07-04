@@ -10,7 +10,7 @@ repos:
   # Pyright for type checking
   - repo: local
     hooks:
-      - id: pyright
+      - id: pyright　
         name: pyright
         entry: uv run --frozen pyright
         language: system
