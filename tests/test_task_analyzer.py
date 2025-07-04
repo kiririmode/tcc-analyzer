@@ -1,6 +1,9 @@
 """Tests for TaskAnalyzer."""
 
+import io
+import json
 import math
+import sys
 import tempfile
 from datetime import timedelta
 from pathlib import Path
@@ -92,6 +95,111 @@ class TestTaskAnalyzer:
         assert len(updated_results) == 2
         assert updated_results[0]["percentage"] == "50.0%"  # 4/8 * 100
         assert updated_results[1]["percentage"] == "25.0%"  # 2/8 * 100
+
+    def test_display_table_with_base_time(self) -> None:
+        """Test table display includes base time in title."""
+        # Create sample CSV data
+        csv_content = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Work,Focus,02:00:00\n"
+            "Study,Focus,01:00:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Add percentage to results for base time test
+            results_with_percentage = analyzer._add_percentage_to_results(
+                results, "08:00:00"
+            )
+
+            # Test that table creation includes base time in title
+            table = analyzer._create_project_table(results_with_percentage, "08:00:00")
+            assert table.title is not None
+            assert "Base: 08:00:00" in table.title
+
+            # Test without base time
+            table_no_base = analyzer._create_project_table(results, None)
+            assert table_no_base.title is not None
+            assert "Base:" not in table_no_base.title
+
+        finally:
+            csv_path.unlink()
+
+    def test_display_json_with_base_time(self) -> None:
+        """Test JSON output includes base time metadata."""
+
+        # Create sample CSV data
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Capture stdout
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
+
+            analyzer.display_json(results, "project", "08:00:00")
+
+            # Restore stdout
+            sys.stdout = sys.__stdout__
+
+            # Parse JSON output
+            output = json.loads(captured_output.getvalue())
+
+            # Check that base_time and analysis_type are included
+            assert "base_time" in output
+            assert output["base_time"] == "08:00:00"
+            assert "analysis_type" in output
+            assert "results" in output
+
+        finally:
+            csv_path.unlink()
+
+    def test_display_csv_with_base_time(self) -> None:
+        """Test CSV output includes base time comment."""
+
+        # Create sample CSV data
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Capture stdout
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
+
+            analyzer.display_csv(results, "project", "08:00:00")
+
+            # Restore stdout
+            sys.stdout = sys.__stdout__
+
+            output_lines = captured_output.getvalue().strip().split("\n")
+
+            # Check that first line contains base time comment
+            assert output_lines[0] == "# Base Time: 08:00:00"
+            assert "Percentage" in output_lines[1]  # Header line
+
+        finally:
+            csv_path.unlink()
 
     def test_analyze_by_project(self) -> None:
         """Test project analysis with sample data."""

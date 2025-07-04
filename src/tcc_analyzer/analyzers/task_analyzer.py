@@ -307,7 +307,10 @@ class TaskAnalyzer:
         self, results: list[dict[str, Any]], base_time: str | None
     ) -> Table:
         """Create table for mode analysis."""
-        table = Table(title="TaskChute Cloud - Mode Time Analysis")
+        title = "TaskChute Cloud - Mode Time Analysis"
+        if base_time is not None:
+            title += f" (Base: {base_time})"
+        table = Table(title=title)
         table.add_column("Mode", style="cyan", no_wrap=True)
         table.add_column("Total Time", style="green")
         table.add_column("Task Count", style="yellow")
@@ -329,7 +332,10 @@ class TaskAnalyzer:
         self, results: list[dict[str, Any]], base_time: str | None
     ) -> Table:
         """Create table for project-mode analysis."""
-        table = Table(title="TaskChute Cloud - Project x Mode Time Analysis")
+        title = "TaskChute Cloud - Project x Mode Time Analysis"
+        if base_time is not None:
+            title += f" (Base: {base_time})"
+        table = Table(title=title)
         table.add_column("Project", style="cyan", no_wrap=True)
         table.add_column("Mode", style="magenta", no_wrap=True)
         table.add_column("Total Time", style="green")
@@ -353,7 +359,10 @@ class TaskAnalyzer:
         self, results: list[dict[str, Any]], base_time: str | None
     ) -> Table:
         """Create table for project analysis."""
-        table = Table(title="TaskChute Cloud - Project Time Analysis")
+        title = "TaskChute Cloud - Project Time Analysis"
+        if base_time is not None:
+            title += f" (Base: {base_time})"
+        table = Table(title=title)
         table.add_column("Project", style="cyan", no_wrap=True)
         table.add_column("Total Time", style="green")
         table.add_column("Task Count", style="yellow")
@@ -433,12 +442,25 @@ class TaskAnalyzer:
                     project_result["percentage"] = result["percentage"]
                 json_results.append(project_result)  # type: ignore
 
-        print(json.dumps(json_results, ensure_ascii=False, indent=2))
+        # Create final output with metadata if base_time is provided
+        if base_time is not None:
+            output = {
+                "base_time": base_time,
+                "analysis_type": analysis_type,
+                "results": json_results,
+            }
+        else:
+            output = json_results
+
+        print(json.dumps(output, ensure_ascii=False, indent=2))
 
     def _print_mode_csv(
         self, results: list[dict[str, Any]], base_time: str | None
     ) -> None:
         """Print CSV for mode analysis."""
+        # Add base time information as comment if provided
+        if base_time is not None:
+            print(f"# Base Time: {base_time}")
         header = "Mode,Total Time,Task Count"
         if base_time is not None:
             header += ",Percentage"
@@ -453,6 +475,9 @@ class TaskAnalyzer:
         self, results: list[dict[str, Any]], base_time: str | None
     ) -> None:
         """Print CSV for project-mode analysis."""
+        # Add base time information as comment if provided
+        if base_time is not None:
+            print(f"# Base Time: {base_time}")
         header = "Project,Mode,Total Time,Task Count"
         if base_time is not None:
             header += ",Percentage"
@@ -470,6 +495,9 @@ class TaskAnalyzer:
         self, results: list[dict[str, Any]], base_time: str | None
     ) -> None:
         """Print CSV for project analysis."""
+        # Add base time information as comment if provided
+        if base_time is not None:
+            print(f"# Base Time: {base_time}")
         header = "Project,Total Time,Task Count"
         if base_time is not None:
             header += ",Percentage"
