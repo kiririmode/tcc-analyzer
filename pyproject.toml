@@ -15,6 +15,7 @@ tcc-analyzer = "tcc_analyzer.cli:main"
 
 [dependency-groups]
 dev = [
+    "lizard>=1.17.31",
     "pandas-stubs>=2.3.0.250703",
     "pre-commit>=4.2.0",
     "pyright>=1.1.402",

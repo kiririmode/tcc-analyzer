@@ -1,5 +1,6 @@
 """Command line interface for TCC Analyzer."""
 
+import re
 from pathlib import Path
 
 import click
@@ -42,7 +43,7 @@ def main() -> None:
 @click.option(
     "--base-time",
     type=str,
-    help="Base time (HH:MM:SS) to calculate percentage against",
+    help="Base time (HH:MM or HH:MM:SS) to calculate percentage against",
 )
 def task(
     csv_file: Path,
@@ -54,6 +55,22 @@ def task(
 ) -> None:
     """Analyze TaskChute Cloud task logs with project/mode/project-mode grouping."""
     analyzer = TaskAnalyzer(csv_file)
+
+    # Validate base_time format if provided
+    if base_time is not None:
+        # Validate base_time format with strict HH:MM or HH:MM:SS pattern
+        is_valid_format = bool(
+            re.match(r"^\d{2}:\d{2}(:\d{2})?$", base_time)
+            and base_time not in {"00:00", "00:00:00"}
+        )
+
+        if not is_valid_format:
+            click.echo(
+                f"Error: Invalid base time format '{base_time}'. "
+                f"Use HH:MM or HH:MM:SS format (e.g., '08:00' or '08:00:00').",
+                err=True,
+            )
+            raise click.Abort()
 
     if group_by == "mode":
         results = analyzer.analyze_by_mode(sort_by=sort_by, reverse=reverse)

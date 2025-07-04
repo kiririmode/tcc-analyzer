@@ -19,6 +19,7 @@ class TestTaskAnalyzer:
         """Test parsing valid time duration strings."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
 
+        # Test HH:MM:SS format
         assert analyzer._parse_time_duration("01:30:45") == timedelta(
             hours=1, minutes=30, seconds=45
         )
@@ -27,13 +28,32 @@ class TestTaskAnalyzer:
             hours=12, minutes=59, seconds=59
         )
 
+        # Test HH:MM format (seconds omitted)
+        assert analyzer._parse_time_duration("01:30") == timedelta(
+            hours=1, minutes=30, seconds=0
+        )
+        assert analyzer._parse_time_duration("08:00") == timedelta(
+            hours=8, minutes=0, seconds=0
+        )
+        assert analyzer._parse_time_duration("00:45") == timedelta(
+            hours=0, minutes=45, seconds=0
+        )
+
     def test_parse_time_duration_invalid(self) -> None:
         """Test parsing invalid time duration strings."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
 
         assert analyzer._parse_time_duration("") == timedelta(0)
         assert analyzer._parse_time_duration("invalid") == timedelta(0)
-        assert analyzer._parse_time_duration("1:2") == timedelta(0)
+        assert analyzer._parse_time_duration("1:2") == timedelta(0)  # Not HH:MM format
+        assert analyzer._parse_time_duration("25:70") == timedelta(0)  # Invalid minutes
+        assert analyzer._parse_time_duration("abc:def") == timedelta(0)  # Non-numeric
+        assert analyzer._parse_time_duration("12:60") == timedelta(
+            0
+        )  # Minutes out of range
+        assert analyzer._parse_time_duration("12:59:60") == timedelta(
+            0
+        )  # Seconds out of range
 
     def test_parse_time_duration_nan(self) -> None:
         """Test parsing NaN values."""
@@ -358,8 +378,9 @@ class TestTaskAnalyzer:
 
             # Should be a list, not an object with metadata
             assert isinstance(output, list)
-            assert len(output) == 1
-            assert output[0]["project"] == "Work"
+            assert len(output) == 1  # type: ignore[misc]
+            output_item = output[0]  # type: ignore[misc]
+            assert output_item["project"] == "Work"
 
         finally:
             csv_path.unlink()
@@ -391,6 +412,45 @@ class TestTaskAnalyzer:
             # Should not have base time comment
             assert not output_lines[0].startswith("# Base Time:")
             assert output_lines[0] == "Project,Total Time,Task Count"
+
+        finally:
+            csv_path.unlink()
+
+    def test_base_time_without_seconds(self) -> None:
+        """Test base time functionality with HH:MM format (no seconds)."""
+        csv_content = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Work,Focus,02:00:00\n"
+            "Study,Focus,01:30:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Test with HH:MM format base time (no seconds)
+            results_with_percentage = analyzer._add_percentage_to_results(
+                results,
+                "08:00",  # 8 hours without seconds
+            )
+
+            # Verify percentage calculations work correctly
+            work_result = next(
+                r for r in results_with_percentage if r["project"] == "Work"
+            )
+            study_result = next(
+                r for r in results_with_percentage if r["project"] == "Study"
+            )
+
+            # Work: 2 hours / 8 hours = 25%
+            assert work_result["percentage"] == "25.0%"
+            # Study: 1.5 hours / 8 hours = 18.75%
+            assert study_result["percentage"] == "18.8%"
 
         finally:
             csv_path.unlink()

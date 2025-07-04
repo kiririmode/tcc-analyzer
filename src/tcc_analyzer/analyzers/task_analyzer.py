@@ -9,6 +9,12 @@ import pandas as pd
 from rich.console import Console
 from rich.table import Table
 
+# Constants for time validation
+MIN_TIME_PARTS = 2
+MAX_TIME_PARTS = 3
+REQUIRED_DIGIT_LENGTH = 2
+MAX_MINUTES_SECONDS = 60
+
 
 class TaskAnalyzer:
     """Analyzer for TaskChute Cloud task logs."""
@@ -45,21 +51,50 @@ class TaskAnalyzer:
         return self._data
 
     def _parse_time_duration(self, time_str: str | float) -> timedelta:
-        """Parse time duration string (HH:MM:SS) to timedelta."""
+        """Parse time duration string (HH:MM or HH:MM:SS) to timedelta."""
         if pd.isna(time_str) or time_str == "":  # type: ignore
             return timedelta(0)
 
         if not isinstance(time_str, str):
             return timedelta(0)
 
+        return self._parse_time_string(time_str)
+
+    def _parse_time_string(self, time_str: str) -> timedelta:
+        """Parse time string and return timedelta."""
         try:
             parts = time_str.split(":")
+
+            if not self._is_valid_time_format(parts):
+                return timedelta(0)
+
             hours = int(parts[0])
             minutes = int(parts[1])
-            seconds = int(parts[2])
+            seconds = int(parts[2]) if len(parts) >= MAX_TIME_PARTS else 0
+
+            if not self._is_valid_time_range(minutes, seconds):
+                return timedelta(0)
+
             return timedelta(hours=hours, minutes=minutes, seconds=seconds)
         except (ValueError, IndexError):
             return timedelta(0)
+
+    def _is_valid_time_format(self, parts: list[str]) -> bool:
+        """Check if time parts have valid format."""
+        if len(parts) < MIN_TIME_PARTS or len(parts) > MAX_TIME_PARTS:
+            return False
+        if (
+            len(parts[0]) != REQUIRED_DIGIT_LENGTH
+            or len(parts[1]) != REQUIRED_DIGIT_LENGTH
+        ):
+            return False
+        if len(parts) == MAX_TIME_PARTS and len(parts[2]) != REQUIRED_DIGIT_LENGTH:
+            return False
+        return True
+
+    def _is_valid_time_range(self, minutes: int, seconds: int) -> bool:
+        """Check if time values are within valid range."""
+        return minutes < MAX_MINUTES_SECONDS and seconds < MAX_MINUTES_SECONDS
 
     def _format_duration(self, duration: timedelta) -> str:
         """Format timedelta as HH:MM:SS string."""
@@ -98,61 +133,115 @@ class TaskAnalyzer:
         field_values: dict[str, dict[str, str]] = {}
 
         for _, row in data.iterrows():  # type: ignore
-            # Extract field values
-            field_data: dict[str, str] = {}
-            skip_row = False
-
-            for field in fields:
-                value = row[field]
-                if pd.isna(value) or value == "":  # type: ignore[misc]
-                    skip_row = True
-                    break
-                if not isinstance(value, str):
-                    skip_row = True
-                    break
-                field_data[field] = value
-
-            if skip_row:
+            field_data = self._extract_field_data(row, fields)
+            if field_data is None:
                 continue
 
-            # Create composite key
-            composite_key: str
-            if len(fields) == 1:
-                composite_key = field_data[fields[0]]
-            else:
-                composite_key = " | ".join(field_data[field] for field in fields)
-
+            composite_key = self._create_composite_key(field_data, fields)
             duration = self._parse_time_duration(row["実績時間"])
 
-            if composite_key not in times:
-                times[composite_key] = timedelta(0)
-                task_counts[composite_key] = 0
-                field_values[composite_key] = field_data
+            self._update_aggregation_data(
+                composite_key, duration, field_data, times, task_counts, field_values
+            )
 
-            times[composite_key] += duration
-            task_counts[composite_key] += 1
+        return self._convert_to_results(
+            times, task_counts, field_values, result_key_mapping, fields
+        )
 
-        # Convert to results format
+    def _extract_field_data(
+        self,
+        row: pd.Series,
+        fields: list[str],  # type: ignore[misc]
+    ) -> dict[str, str] | None:
+        """Extract and validate field data from a row."""
+        field_data: dict[str, str] = {}
+
+        for field in fields:
+            value = row[field]
+            if pd.isna(value) or value == "":  # type: ignore[misc]
+                return None
+            if not isinstance(value, str):
+                return None
+            field_data[field] = value
+
+        return field_data
+
+    def _create_composite_key(
+        self, field_data: dict[str, str], fields: list[str]
+    ) -> str:
+        """Create composite key from field data."""
+        if len(fields) == 1:
+            return field_data[fields[0]]
+        return " | ".join(field_data[field] for field in fields)
+
+    def _update_aggregation_data(
+        self,
+        composite_key: str,
+        duration: timedelta,
+        field_data: dict[str, str],
+        times: dict[str, timedelta],
+        task_counts: dict[str, int],
+        field_values: dict[str, dict[str, str]],
+    ) -> None:
+        """Update aggregation dictionaries with new data."""
+        if composite_key not in times:
+            times[composite_key] = timedelta(0)
+            task_counts[composite_key] = 0
+            field_values[composite_key] = field_data
+
+        times[composite_key] += duration
+        task_counts[composite_key] += 1
+
+    def _convert_to_results(
+        self,
+        times: dict[str, timedelta],
+        task_counts: dict[str, int],
+        field_values: dict[str, dict[str, str]],
+        result_key_mapping: dict[str, str],
+        fields: list[str],
+    ) -> dict[str, dict[str, Any]]:
+        """Convert aggregated data to results format."""
         results: dict[str, dict[str, Any]] = {}
+
         for composite_key, total_time in times.items():
-            result: dict[str, Any] = {
-                "total_time": self._format_duration(total_time),
-                "total_seconds": int(total_time.total_seconds()),
-                "task_count": str(task_counts[composite_key]),
-            }
-
-            # Add field-specific keys
-            for field, result_key in result_key_mapping.items():
-                if field in field_values[composite_key]:
-                    result[result_key] = field_values[composite_key][field]
-
-            # Add composite key for project-mode combination
-            if len(fields) > 1:
-                result["project_mode"] = composite_key
-
+            result = self._create_result_entry(
+                total_time,
+                task_counts[composite_key],
+                field_values[composite_key],
+                result_key_mapping,
+                fields,
+                composite_key,
+            )
             results[composite_key] = result
 
         return results
+
+    def _create_result_entry(
+        self,
+        total_time: timedelta,
+        task_count: int,
+        field_data: dict[str, str],
+        result_key_mapping: dict[str, str],
+        fields: list[str],
+        composite_key: str,
+    ) -> dict[str, Any]:
+        """Create a single result entry."""
+        result: dict[str, Any] = {
+            "total_time": self._format_duration(total_time),
+            "total_seconds": int(total_time.total_seconds()),
+            "task_count": str(task_count),
+        }
+
+        # Add field-specific keys
+        for field, result_key in result_key_mapping.items():
+            if field in field_data:
+                result[result_key] = field_data[field]
+
+        # Add composite key for project-mode combination
+        if len(fields) > 1:
+            result["project_mode"] = composite_key
+
+        return result
 
     def _sort_results(
         self,
