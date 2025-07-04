@@ -3,8 +3,8 @@
 
 # This Product
 
-A Python CLI tool for analyzing and visualizing your time management with TaskChute Cloud logs. 
-It provides individuals with insights on task completion, time allocation, and categories. 
+A Python CLI tool for analyzing and visualizing your time management with TaskChute Cloud logs.
+It provides individuals with insights on task completion, time allocation, and categories.
 Key features: daily/weekly/monthly breakdowns, category-based analysis, and visualization of concentration trends.
 
 ## Architecture
@@ -81,9 +81,10 @@ This document contains critical information about working with this codebase. Fo
 ## Pre-commit Hooks
 
 - Pre-commit hooks are automatically installed and run quality checks before each commit
-- The hooks check: formatting (ruff), linting (ruff), type checking (pyright), tests (pytest), and cyclomatic complexity (lizard)
+- The hooks check: formatting (ruff), linting (ruff), type checking (pyright), and tests (pytest)
 - If any check fails, the commit is blocked until issues are resolved
-- To install hooks after cloning: `./scripts/setup-hooks.sh`
+- To install hooks after cloning: `uv run --frozen pre-commit install`
+- To run manually: `uv run --frozen pre-commit run --all-files`
 - To bypass temporarily (not recommended): `git commit --no-verify`
 
 ## Python Tools
@@ -105,19 +106,24 @@ This document contains critical information about working with this codebase. Fo
 
 2. Type Checking
    - Tool: `uv run --frozen pyright`
+   - Strict mode enabled with comprehensive error reporting
    - Requirements:
-     - Explicit None checks for Optional
-     - Type narrowing for strings
-     - Version warnings can be ignored if checks pass
+     - Complete type annotations for all functions
+     - Explicit None checks for Optional types
+     - Type narrowing for union types
+     - pandas-stubs installed for pandas type support
+   - Configuration in pyproject.toml under [tool.pyright]
 
-3. Pre-commit
+3. Pre-commit Setup
+   - Install: `uv add --dev pre-commit`
    - Config: `.pre-commit-config.yaml`
-   - Runs: on git commit
-   - Tools: Prettier (YAML/JSON), Ruff (Python)
-   - Ruff updates:
-     - Check PyPI versions
-     - Update config rev
-     - Commit config first
+   - Runs automatically on git commit
+   - Tools included:
+     - Ruff (linting and formatting)
+     - Pyright (type checking)
+     - Pytest (test execution)
+     - Standard hooks (trailing whitespace, end-of-file, yaml check, etc.)
+   - Manual run: `uv run --frozen pre-commit run --all-files`
 
 ## Error Resolution
 
@@ -153,3 +159,14 @@ This document contains critical information about working with this codebase. Fo
    - Follow existing patterns
    - Document public APIs
    - Test thoroughly
+
+## Continuous Integration
+
+- GitHub Actions workflow: `.github/workflows/ci.yml`
+- Runs on: push to main, pull requests
+- Python versions tested: 3.10, 3.11, 3.12
+- Jobs:
+  1. **Test Job**: Runs ruff linting, ruff formatting, pyright type checking, pytest with coverage
+  2. **Pre-commit Job**: Validates all pre-commit hooks
+- Code coverage reporting with Codecov integration
+- All checks must pass for PR merge

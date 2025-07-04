@@ -114,16 +114,22 @@ class TaskAnalyzer:
 
         # Sort results
         if sort_by == "time":
+
             def time_key(x: dict[str, Any]) -> int:
                 return int(x["total_seconds"])
+
             results.sort(key=time_key, reverse=reverse)  # type: ignore
         elif sort_by == "project":
+
             def project_key(x: dict[str, Any]) -> str:
                 return str(x["project"])
+
             results.sort(key=project_key, reverse=reverse)  # type: ignore
         else:  # default to project for this analysis type
+
             def default_key(x: dict[str, Any]) -> str:
                 return str(x["project"])
+
             results.sort(key=default_key, reverse=reverse)  # type: ignore
 
         return results  # type: ignore
@@ -173,16 +179,22 @@ class TaskAnalyzer:
 
         # Sort results
         if sort_by == "time":
+
             def time_key(x: dict[str, Any]) -> int:
                 return int(x["total_seconds"])
+
             results.sort(key=time_key, reverse=reverse)  # type: ignore
         elif sort_by == "mode":
+
             def mode_key(x: dict[str, Any]) -> str:
                 return str(x["mode"])
+
             results.sort(key=mode_key, reverse=reverse)  # type: ignore
         else:  # default to mode for this analysis type
+
             def default_key(x: dict[str, Any]) -> str:
                 return str(x["mode"])
+
             results.sort(key=default_key, reverse=reverse)  # type: ignore
 
         return results  # type: ignore
@@ -245,20 +257,28 @@ class TaskAnalyzer:
 
         # Sort results
         if sort_by == "time":
+
             def time_key(x: dict[str, Any]) -> int:
                 return int(x["total_seconds"])
+
             results.sort(key=time_key, reverse=reverse)  # type: ignore
         elif sort_by == "project":
+
             def project_key(x: dict[str, Any]) -> tuple[str, str]:
                 return (str(x["project"]), str(x["mode"]))
+
             results.sort(key=project_key, reverse=reverse)  # type: ignore
         elif sort_by == "mode":
+
             def mode_key(x: dict[str, Any]) -> tuple[str, str]:
                 return (str(x["mode"]), str(x["project"]))
+
             results.sort(key=mode_key, reverse=reverse)  # type: ignore
         else:  # default to project-mode combination
+
             def default_key(x: dict[str, Any]) -> tuple[str, str]:
                 return (str(x["project"]), str(x["mode"]))
+
             results.sort(key=default_key, reverse=reverse)  # type: ignore
 
         return results  # type: ignore
