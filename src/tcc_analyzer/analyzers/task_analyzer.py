@@ -69,6 +69,26 @@ class TaskAnalyzer:
         seconds = total_seconds % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+    def _calculate_percentage(self, duration: timedelta, base_time_str: str) -> float:
+        """Calculate percentage of duration against base time."""
+        base_duration = self._parse_time_duration(base_time_str)
+        if base_duration.total_seconds() == 0:
+            return 0.0
+        return (duration.total_seconds() / base_duration.total_seconds()) * 100
+
+    def _add_percentage_to_results(
+        self, results: list[dict[str, Any]], base_time_str: str
+    ) -> list[dict[str, Any]]:
+        """Add percentage column to results based on base time."""
+        updated_results: list[dict[str, Any]] = []
+        for result in results:
+            updated_result = result.copy()
+            duration = timedelta(seconds=result["total_seconds"])
+            percentage = self._calculate_percentage(duration, base_time_str)
+            updated_result["percentage"] = f"{percentage:.1f}%"
+            updated_results.append(updated_result)
+        return updated_results
+
     def analyze_by_project(
         self, sort_by: str = "time", reverse: bool = False
     ) -> list[dict[str, Any]]:
@@ -283,103 +303,197 @@ class TaskAnalyzer:
 
         return results  # type: ignore
 
+    def _create_mode_table(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> Table:
+        """Create table for mode analysis."""
+        table = Table(title="TaskChute Cloud - Mode Time Analysis")
+        table.add_column("Mode", style="cyan", no_wrap=True)
+        table.add_column("Total Time", style="green")
+        table.add_column("Task Count", style="yellow")
+        if base_time is not None:
+            table.add_column("Percentage", style="magenta")
+
+        for result in results:
+            row_data = [
+                str(result["mode"]),
+                str(result["total_time"]),
+                str(result["task_count"]),
+            ]
+            if base_time is not None:
+                row_data.append(str(result["percentage"]))
+            table.add_row(*row_data)
+        return table
+
+    def _create_project_mode_table(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> Table:
+        """Create table for project-mode analysis."""
+        table = Table(title="TaskChute Cloud - Project x Mode Time Analysis")
+        table.add_column("Project", style="cyan", no_wrap=True)
+        table.add_column("Mode", style="magenta", no_wrap=True)
+        table.add_column("Total Time", style="green")
+        table.add_column("Task Count", style="yellow")
+        if base_time is not None:
+            table.add_column("Percentage", style="bright_blue")
+
+        for result in results:
+            row_data = [
+                str(result["project"]),
+                str(result["mode"]),
+                str(result["total_time"]),
+                str(result["task_count"]),
+            ]
+            if base_time is not None:
+                row_data.append(str(result["percentage"]))
+            table.add_row(*row_data)
+        return table
+
+    def _create_project_table(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> Table:
+        """Create table for project analysis."""
+        table = Table(title="TaskChute Cloud - Project Time Analysis")
+        table.add_column("Project", style="cyan", no_wrap=True)
+        table.add_column("Total Time", style="green")
+        table.add_column("Task Count", style="yellow")
+        if base_time is not None:
+            table.add_column("Percentage", style="bright_red")
+
+        for result in results:
+            row_data = [
+                str(result["project"]),
+                str(result["total_time"]),
+                str(result["task_count"]),
+            ]
+            if base_time is not None:
+                row_data.append(str(result["percentage"]))
+            table.add_row(*row_data)
+        return table
+
     def display_table(
-        self, results: list[dict[str, Any]], analysis_type: str = "project"
+        self,
+        results: list[dict[str, Any]],
+        analysis_type: str = "project",
+        base_time: str | None = None,
     ) -> None:
         """Display results as a rich table."""
+        # Add percentage column if base_time is provided
+        if base_time is not None:
+            results = self._add_percentage_to_results(results, base_time)
+
         if analysis_type == "mode":
-            table = Table(title="TaskChute Cloud - Mode Time Analysis")
-            table.add_column("Mode", style="cyan", no_wrap=True)
-            table.add_column("Total Time", style="green")
-            table.add_column("Task Count", style="yellow")
-
-            for result in results:
-                table.add_row(
-                    str(result["mode"]),
-                    str(result["total_time"]),
-                    str(result["task_count"]),
-                )
+            table = self._create_mode_table(results, base_time)
         elif analysis_type == "project-mode":
-            table = Table(title="TaskChute Cloud - Project x Mode Time Analysis")
-            table.add_column("Project", style="cyan", no_wrap=True)
-            table.add_column("Mode", style="magenta", no_wrap=True)
-            table.add_column("Total Time", style="green")
-            table.add_column("Task Count", style="yellow")
-
-            for result in results:
-                table.add_row(
-                    str(result["project"]),
-                    str(result["mode"]),
-                    str(result["total_time"]),
-                    str(result["task_count"]),
-                )
+            table = self._create_project_mode_table(results, base_time)
         else:
-            table = Table(title="TaskChute Cloud - Project Time Analysis")
-            table.add_column("Project", style="cyan", no_wrap=True)
-            table.add_column("Total Time", style="green")
-            table.add_column("Task Count", style="yellow")
-
-            for result in results:
-                table.add_row(
-                    str(result["project"]),
-                    str(result["total_time"]),
-                    str(result["task_count"]),
-                )
+            table = self._create_project_table(results, base_time)
 
         self.console.print(table)
 
     def display_json(
-        self, results: list[dict[str, Any]], analysis_type: str = "project"
+        self,
+        results: list[dict[str, Any]],
+        analysis_type: str = "project",
+        base_time: str | None = None,
     ) -> None:
         """Display results as JSON."""
+        # Add percentage column if base_time is provided
+        if base_time is not None:
+            results = self._add_percentage_to_results(results, base_time)
         # Remove internal fields for JSON output
         json_results: list[dict[str, Any]] = []
         for result in results:
             if analysis_type == "mode":
-                json_results.append(  # type: ignore
-                    {
-                        "mode": result["mode"],
-                        "total_time": result["total_time"],
-                        "task_count": int(result["task_count"]),
-                    }
-                )
+                mode_result = {
+                    "mode": result["mode"],
+                    "total_time": result["total_time"],
+                    "task_count": int(result["task_count"]),
+                }
+                if base_time is not None:
+                    mode_result["percentage"] = result["percentage"]
+                json_results.append(mode_result)  # type: ignore
             elif analysis_type == "project-mode":
-                json_results.append(  # type: ignore
-                    {
-                        "project": result["project"],
-                        "mode": result["mode"],
-                        "total_time": result["total_time"],
-                        "task_count": int(result["task_count"]),
-                    }
-                )
+                project_mode_result = {
+                    "project": result["project"],
+                    "mode": result["mode"],
+                    "total_time": result["total_time"],
+                    "task_count": int(result["task_count"]),
+                }
+                if base_time is not None:
+                    project_mode_result["percentage"] = result["percentage"]
+                json_results.append(project_mode_result)  # type: ignore
             else:
-                json_results.append(  # type: ignore
-                    {
-                        "project": result["project"],
-                        "total_time": result["total_time"],
-                        "task_count": int(result["task_count"]),
-                    }
-                )
+                project_result = {
+                    "project": result["project"],
+                    "total_time": result["total_time"],
+                    "task_count": int(result["task_count"]),
+                }
+                if base_time is not None:
+                    project_result["percentage"] = result["percentage"]
+                json_results.append(project_result)  # type: ignore
 
         print(json.dumps(json_results, ensure_ascii=False, indent=2))
 
+    def _print_mode_csv(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> None:
+        """Print CSV for mode analysis."""
+        header = "Mode,Total Time,Task Count"
+        if base_time is not None:
+            header += ",Percentage"
+        print(header)
+        for result in results:
+            row = f"{result['mode']},{result['total_time']},{result['task_count']}"
+            if base_time is not None:
+                row += f",{result['percentage']}"
+            print(row)
+
+    def _print_project_mode_csv(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> None:
+        """Print CSV for project-mode analysis."""
+        header = "Project,Mode,Total Time,Task Count"
+        if base_time is not None:
+            header += ",Percentage"
+        print(header)
+        for result in results:
+            row = (
+                f"{result['project']},{result['mode']},"
+                f"{result['total_time']},{result['task_count']}"
+            )
+            if base_time is not None:
+                row += f",{result['percentage']}"
+            print(row)
+
+    def _print_project_csv(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> None:
+        """Print CSV for project analysis."""
+        header = "Project,Total Time,Task Count"
+        if base_time is not None:
+            header += ",Percentage"
+        print(header)
+        for result in results:
+            row = f"{result['project']},{result['total_time']},{result['task_count']}"
+            if base_time is not None:
+                row += f",{result['percentage']}"
+            print(row)
+
     def display_csv(
-        self, results: list[dict[str, Any]], analysis_type: str = "project"
+        self,
+        results: list[dict[str, Any]],
+        analysis_type: str = "project",
+        base_time: str | None = None,
     ) -> None:
         """Display results as CSV."""
+        # Add percentage column if base_time is provided
+        if base_time is not None:
+            results = self._add_percentage_to_results(results, base_time)
+
         if analysis_type == "mode":
-            print("Mode,Total Time,Task Count")
-            for result in results:
-                print(f"{result['mode']},{result['total_time']},{result['task_count']}")
+            self._print_mode_csv(results, base_time)
         elif analysis_type == "project-mode":
-            print("Project,Mode,Total Time,Task Count")
-            for result in results:
-                print(
-                    f"{result['project']},{result['mode']},{result['total_time']},{result['task_count']}"
-                )
+            self._print_project_mode_csv(results, base_time)
         else:
-            print("Project,Total Time,Task Count")
-            for result in results:
-                print(
-                    f"{result['project']},{result['total_time']},{result['task_count']}"
-                )
+            self._print_project_csv(results, base_time)

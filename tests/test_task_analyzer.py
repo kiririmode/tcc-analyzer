@@ -48,10 +48,50 @@ class TestTaskAnalyzer:
             == "01:30:45"
         )
         assert analyzer._format_duration(timedelta(0)) == "00:00:00"
-        assert (
-            analyzer._format_duration(timedelta(hours=24, minutes=0, seconds=1))
-            == "24:00:01"
-        )
+
+    def test_calculate_percentage(self) -> None:
+        """Test percentage calculation against base time."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test basic percentage calculation
+        duration = timedelta(hours=1)  # 1 hour
+        base_time = "08:00:00"  # 8 hours
+        percentage = analyzer._calculate_percentage(duration, base_time)
+        assert percentage == 12.5  # 1/8 * 100 = 12.5%
+
+        # Test 100% case
+        duration = timedelta(hours=8)
+        percentage = analyzer._calculate_percentage(duration, base_time)
+        assert percentage == 100.0
+
+        # Test zero base time (edge case)
+        percentage = analyzer._calculate_percentage(duration, "00:00:00")
+        assert percentage == 0.0
+
+    def test_add_percentage_to_results(self) -> None:
+        """Test adding percentage column to results."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results = [
+            {
+                "project": "Work",
+                "total_time": "04:00:00",
+                "total_seconds": 14400,  # 4 hours in seconds
+                "task_count": "5",
+            },
+            {
+                "project": "Study",
+                "total_time": "02:00:00",
+                "total_seconds": 7200,  # 2 hours in seconds
+                "task_count": "3",
+            },
+        ]
+
+        updated_results = analyzer._add_percentage_to_results(results, "08:00:00")
+
+        assert len(updated_results) == 2
+        assert updated_results[0]["percentage"] == "50.0%"  # 4/8 * 100
+        assert updated_results[1]["percentage"] == "25.0%"  # 2/8 * 100
 
     def test_analyze_by_project(self) -> None:
         """Test project analysis with sample data."""

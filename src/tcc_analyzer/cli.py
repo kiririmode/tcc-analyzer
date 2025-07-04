@@ -39,12 +39,18 @@ def main() -> None:
     default="project",
     help="Group results by project, mode, or project-mode combination",
 )
+@click.option(
+    "--base-time",
+    type=str,
+    help="Base time (HH:MM:SS) to calculate percentage against",
+)
 def task(
     csv_file: Path,
     output_format: str,
     sort_by: str,
     reverse: bool,
     group_by: str,
+    base_time: str | None,
 ) -> None:
     """Analyze TaskChute Cloud task logs with project/mode/project-mode grouping."""
     analyzer = TaskAnalyzer(csv_file)
@@ -57,11 +63,11 @@ def task(
         results = analyzer.analyze_by_project(sort_by=sort_by, reverse=reverse)
 
     if output_format == "table":
-        analyzer.display_table(results, analysis_type=group_by)
+        analyzer.display_table(results, analysis_type=group_by, base_time=base_time)
     elif output_format == "json":
-        analyzer.display_json(results, analysis_type=group_by)
+        analyzer.display_json(results, analysis_type=group_by, base_time=base_time)
     elif output_format == "csv":
-        analyzer.display_csv(results, analysis_type=group_by)
+        analyzer.display_csv(results, analysis_type=group_by, base_time=base_time)
 
 
 if __name__ == "__main__":
