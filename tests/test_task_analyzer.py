@@ -120,12 +120,14 @@ class TestTaskAnalyzer:
             )
 
             # Test that table creation includes base time in title
-            table = analyzer._create_project_table(results_with_percentage, "08:00:00")
+            table = analyzer._create_table(
+                results_with_percentage, "project", "08:00:00"
+            )
             assert table.title is not None
             assert "Base: 08:00:00" in table.title
 
             # Test without base time
-            table_no_base = analyzer._create_project_table(results, None)
+            table_no_base = analyzer._create_table(results, "project", None)
             assert table_no_base.title is not None
             assert "Base:" not in table_no_base.title
 
@@ -197,6 +199,198 @@ class TestTaskAnalyzer:
             # Check that first line contains base time comment
             assert output_lines[0] == "# Base Time: 08:00:00"
             assert "Percentage" in output_lines[1]  # Header line
+
+        finally:
+            csv_path.unlink()
+
+    def test_encoding_fallback_to_shift_jis(self) -> None:
+        """Test encoding fallback to Shift-JIS when UTF-8 fails."""
+        # Create a CSV file with Shift-JIS encoding
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="shift-jis"
+        ) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            # This should trigger the Shift-JIS fallback when UTF-8 fails
+            data = analyzer._load_data()
+            assert len(data) == 1
+            assert data.iloc[0]["プロジェクト名"] == "Work"
+        finally:
+            csv_path.unlink()
+
+    def test_date_parsing_with_datetime_columns(self) -> None:
+        """Test date parsing when datetime columns exist."""
+        csv_content = (
+            "プロジェクト名,モード名,実績時間,開始日時,終了日時\n"
+            "Work,Focus,01:00:00,2023-01-01 09:00:00,2023-01-01 10:00:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            data = analyzer._load_data()
+            # Check that datetime columns are parsed
+            assert "開始日時" in data.columns
+            assert "終了日時" in data.columns
+        finally:
+            csv_path.unlink()
+
+    def test_parse_time_duration_float_input(self) -> None:
+        """Test parsing time duration with float input."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test with float input (should return 0)
+        assert analyzer._parse_time_duration(123.45) == timedelta(0)
+
+        # Test with non-string types
+        assert analyzer._parse_time_duration(None) == timedelta(0)  # type: ignore
+
+    def test_analyze_by_mode_empty_results(self) -> None:
+        """Test mode analysis with empty or invalid data."""
+        csv_content = (
+            "プロジェクト名,モード名,実績時間\n"
+            ",Focus,01:00:00\n"  # Empty project name
+            "Work,,01:00:00\n"  # Empty mode name
+            "Work,Focus,\n"  # Empty time
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_mode()
+            # Should only include the valid Focus mode entry
+            assert len(results) == 1
+            assert results[0]["mode"] == "Focus"
+        finally:
+            csv_path.unlink()
+
+    def test_analyze_by_project_mode_invalid_data(self) -> None:
+        """Test project-mode analysis with invalid data."""
+        csv_content = (
+            "プロジェクト名,モード名,実績時間\n"
+            ",Focus,01:00:00\n"  # Empty project name
+            "Work,,01:00:00\n"  # Empty mode name
+            "Work,Focus,invalid\n"  # Invalid time format
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project_mode()
+            # Should have one valid result (Work + Focus with invalid time becomes 0)
+            assert len(results) == 1
+            assert results[0]["project"] == "Work"
+            assert results[0]["mode"] == "Focus"
+        finally:
+            csv_path.unlink()
+
+    def test_display_table_without_base_time(self) -> None:
+        """Test table display without base time."""
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Capture stdout to test display_table
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
+
+            analyzer.display_table(results, "project", None)
+
+            # Restore stdout
+            sys.stdout = sys.__stdout__
+
+            output = captured_output.getvalue()
+            assert "Project" in output and "Analysis" in output
+            assert "Base:" not in output
+
+        finally:
+            csv_path.unlink()
+
+    def test_display_json_without_base_time(self) -> None:
+        """Test JSON display without base time."""
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Capture stdout
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
+
+            analyzer.display_json(results, "project", None)
+
+            # Restore stdout
+            sys.stdout = sys.__stdout__
+
+            # Parse JSON output
+            output = json.loads(captured_output.getvalue())
+
+            # Should be a list, not an object with metadata
+            assert isinstance(output, list)
+            assert len(output) == 1
+            assert output[0]["project"] == "Work"
+
+        finally:
+            csv_path.unlink()
+
+    def test_display_csv_without_base_time(self) -> None:
+        """Test CSV display without base time."""
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+            f.write(csv_content)
+            f.flush()
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project()
+
+            # Capture stdout
+            captured_output = io.StringIO()
+            sys.stdout = captured_output
+
+            analyzer.display_csv(results, "project", None)
+
+            # Restore stdout
+            sys.stdout = sys.__stdout__
+
+            output_lines = captured_output.getvalue().strip().split("\n")
+
+            # Should not have base time comment
+            assert not output_lines[0].startswith("# Base Time:")
+            assert output_lines[0] == "Project,Total Time,Task Count"
 
         finally:
             csv_path.unlink()

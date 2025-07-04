@@ -37,11 +37,12 @@ This document contains critical information about working with this codebase. Fo
      - Functions exceeding CCN 10 must be refactored into smaller functions
      - CI automatically monitors complexity and fails builds with CCN > 10
    - **Code Similarity**: Monitor and reduce code duplication
-     - Check with: `./scripts/check-similarity.sh`
-     - Target: Keep function similarity below 80% for maintainability
-     - Use `./scripts/check-similarity.sh -t 0.8 -p` for detailed analysis
+     - Check with: `similarity-py src --threshold 0.85 --min-lines 8 --print`
+     - Target: Keep function similarity below 85% for maintainability
+     - Functions with ≥85% similarity and ≥8 lines must be refactored
      - Extract common patterns into shared utility functions
-     - Review functions with >85% similarity for potential refactoring
+     - Use `similarity-py src --threshold 0.85 --min-lines 8` for analysis
+     - Review and refactor identified duplicates immediately
 
 3. Testing Requirements
    - Framework: `uv run --frozen pytest`
@@ -49,10 +50,14 @@ This document contains critical information about working with this codebase. Fo
    - Coverage: test edge cases and errors
    - New features require tests
    - Bug fixes require regression tests
-   - **Coverage Standards**: Each source file must maintain at least 85% test coverage
+   - **Coverage Standards**:
+     - **Overall Coverage**: Project must maintain at least 85% overall test coverage
+     - **Class Coverage**: Each class must maintain at least 85% individual coverage
+     - **File Coverage**: Each source file must maintain at least 85% test coverage
      - Check with: `uv run --frozen pytest --cov=src --cov-report=term-missing`
-     - Files below 85% coverage will block commits
+     - Files or classes below 85% coverage will block commits
      - Exclude only justifiable cases (e.g., __main__.py, error handling paths)
+     - **Coverage Monitoring**: Use `uv run --frozen pytest --cov=src --cov-report=html` for detailed class-by-class coverage analysis
 
 - For commits fixing bugs or adding features based on user reports add:
 ```bash
@@ -81,11 +86,16 @@ This document contains critical information about working with this codebase. Fo
 ## Pre-commit Hooks
 
 - Pre-commit hooks are automatically installed and run quality checks before each commit
-- The hooks check: formatting (ruff), linting (ruff), type checking (pyright), and tests (pytest)
+- The hooks check: formatting (ruff), linting (ruff), type checking (pyright), tests (pytest), and cyclomatic complexity (lizard)
 - If any check fails, the commit is blocked until issues are resolved
-- To install hooks after cloning: `uv run --frozen pre-commit install`
+- To install hooks after cloning: `./scripts/setup-hooks.sh`
 - To run manually: `uv run --frozen pre-commit run --all-files`
 - To bypass temporarily (not recommended): `git commit --no-verify`
+- **Quality Gates**: Pre-commit hooks enforce:
+  - Code formatting and linting (ruff)
+  - Type checking (pyright)
+  - Test coverage ≥85% per class and overall
+  - Cyclomatic complexity ≤10 per function
 
 ## Python Tools
 

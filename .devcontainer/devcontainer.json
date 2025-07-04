@@ -41,6 +41,6 @@
     }
   },
   "forwardPorts": [],
-  "postCreateCommand": "uv sync --frozen --extra dev && npm install -g @anthropic-ai/claude-code && ./setup-hooks.sh",
+  "postCreateCommand": "uv sync --frozen && npm install -g @anthropic-ai/claude-code",
   "remoteUser": "vscode"
 }

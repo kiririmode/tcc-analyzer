@@ -89,295 +89,219 @@ class TaskAnalyzer:
             updated_results.append(updated_result)
         return updated_results
 
+    def _aggregate_by_fields(
+        self, data: pd.DataFrame, fields: list[str], result_key_mapping: dict[str, str]
+    ) -> dict[str, dict[str, Any]]:
+        """Aggregate data by specified fields and return aggregated results."""
+        times: dict[str, timedelta] = {}
+        task_counts: dict[str, int] = {}
+        field_values: dict[str, dict[str, str]] = {}
+
+        for _, row in data.iterrows():  # type: ignore
+            # Extract field values
+            field_data = {}
+            skip_row = False
+
+            for field in fields:
+                value = row[field]
+                if pd.isna(value) or value == "":
+                    skip_row = True
+                    break
+                if not isinstance(value, str):
+                    skip_row = True
+                    break
+                field_data[field] = value
+
+            if skip_row:
+                continue
+
+            # Create composite key
+            if len(fields) == 1:
+                composite_key = field_data[fields[0]]
+            else:
+                composite_key = " | ".join(field_data[field] for field in fields)
+
+            duration = self._parse_time_duration(row["実績時間"])
+
+            if composite_key not in times:
+                times[composite_key] = timedelta(0)
+                task_counts[composite_key] = 0
+                field_values[composite_key] = field_data
+
+            times[composite_key] += duration
+            task_counts[composite_key] += 1
+
+        # Convert to results format
+        results = {}
+        for composite_key, total_time in times.items():
+            result = {
+                "total_time": self._format_duration(total_time),
+                "total_seconds": int(total_time.total_seconds()),
+                "task_count": str(task_counts[composite_key]),
+            }
+
+            # Add field-specific keys
+            for field, result_key in result_key_mapping.items():
+                if field in field_values[composite_key]:
+                    result[result_key] = field_values[composite_key][field]
+
+            # Add composite key for project-mode combination
+            if len(fields) > 1:
+                result["project_mode"] = composite_key
+
+            results[composite_key] = result
+
+        return results
+
+    def _sort_results(
+        self,
+        results: list[dict[str, Any]],
+        sort_by: str,
+        reverse: bool,
+        analysis_type: str,
+    ) -> list[dict[str, Any]]:
+        """Sort results based on sort_by parameter and analysis type."""
+        if sort_by == "time":
+            results.sort(key=lambda x: int(x["total_seconds"]), reverse=reverse)
+        elif sort_by == "project" and analysis_type in ["project", "project-mode"]:
+            if analysis_type == "project":
+                results.sort(key=lambda x: str(x["project"]), reverse=reverse)
+            else:  # project-mode
+                results.sort(
+                    key=lambda x: (str(x["project"]), str(x["mode"])), reverse=reverse
+                )
+        elif sort_by == "mode" and analysis_type in ["mode", "project-mode"]:
+            if analysis_type == "mode":
+                results.sort(key=lambda x: str(x["mode"]), reverse=reverse)
+            else:  # project-mode
+                results.sort(
+                    key=lambda x: (str(x["mode"]), str(x["project"])), reverse=reverse
+                )
+        # Default sorting based on analysis type
+        elif analysis_type == "project":
+            results.sort(key=lambda x: str(x["project"]), reverse=reverse)
+        elif analysis_type == "mode":
+            results.sort(key=lambda x: str(x["mode"]), reverse=reverse)
+        else:  # project-mode
+            results.sort(
+                key=lambda x: (str(x["project"]), str(x["mode"])), reverse=reverse
+            )
+
+        return results
+
+    def _analyze_by_type(
+        self, analysis_type: str, sort_by: str = "time", reverse: bool = False
+    ) -> list[dict[str, Any]]:
+        """Analyze data by specified type with sorting options."""
+        data = self._load_data()
+
+        # Define field mappings for each analysis type
+        field_mappings = {
+            "project": (["プロジェクト名"], {"プロジェクト名": "project"}),
+            "mode": (["モード名"], {"モード名": "mode"}),
+            "project-mode": (
+                ["プロジェクト名", "モード名"],
+                {"プロジェクト名": "project", "モード名": "mode"},
+            ),
+        }
+
+        fields, mapping = field_mappings[analysis_type]
+        aggregated = self._aggregate_by_fields(data, fields, mapping)
+        results = list(aggregated.values())
+        return self._sort_results(results, sort_by, reverse, analysis_type)
+
     def analyze_by_project(
         self, sort_by: str = "time", reverse: bool = False
     ) -> list[dict[str, Any]]:
         """Analyze tasks by project and return aggregated results."""
-        data = self._load_data()
-
-        # Group by project name and calculate total time
-        project_times: dict[str, timedelta] = {}
-        project_task_counts: dict[str, int] = {}
-
-        for _, row in data.iterrows():  # type: ignore
-            project_name = row["プロジェクト名"]
-            actual_time = row["実績時間"]
-
-            # Skip rows without project name
-            if pd.isna(project_name) or project_name == "":  # type: ignore
-                continue
-
-            # Ensure project_name is string
-            if not isinstance(project_name, str):
-                continue
-
-            duration = self._parse_time_duration(actual_time)
-
-            if project_name not in project_times:
-                project_times[project_name] = timedelta(0)
-                project_task_counts[project_name] = 0
-
-            project_times[project_name] += duration
-            project_task_counts[project_name] += 1
-
-        # Convert to list of dictionaries
-        results = []
-        for project_name, total_time in project_times.items():
-            results.append(  # type: ignore
-                {
-                    "project": project_name,
-                    "total_time": self._format_duration(total_time),
-                    "total_seconds": int(total_time.total_seconds()),
-                    "task_count": str(project_task_counts[project_name]),
-                }
-            )
-
-        # Sort results
-        if sort_by == "time":
-
-            def time_key(x: dict[str, Any]) -> int:
-                return int(x["total_seconds"])
-
-            results.sort(key=time_key, reverse=reverse)  # type: ignore
-        elif sort_by == "project":
-
-            def project_key(x: dict[str, Any]) -> str:
-                return str(x["project"])
-
-            results.sort(key=project_key, reverse=reverse)  # type: ignore
-        else:  # default to project for this analysis type
-
-            def default_key(x: dict[str, Any]) -> str:
-                return str(x["project"])
-
-            results.sort(key=default_key, reverse=reverse)  # type: ignore
-
-        return results  # type: ignore
+        return self._analyze_by_type("project", sort_by, reverse)
 
     def analyze_by_mode(
         self, sort_by: str = "time", reverse: bool = False
     ) -> list[dict[str, Any]]:
         """Analyze tasks by mode and return aggregated results."""
-        data = self._load_data()
-
-        # Group by mode name and calculate total time
-        mode_times: dict[str, timedelta] = {}
-        mode_task_counts: dict[str, int] = {}
-
-        for _, row in data.iterrows():  # type: ignore
-            mode_name = row["モード名"]
-            actual_time = row["実績時間"]
-
-            # Skip rows without mode name
-            if pd.isna(mode_name) or mode_name == "":  # type: ignore
-                continue
-
-            # Ensure mode_name is string
-            if not isinstance(mode_name, str):
-                continue
-
-            duration = self._parse_time_duration(actual_time)
-
-            if mode_name not in mode_times:
-                mode_times[mode_name] = timedelta(0)
-                mode_task_counts[mode_name] = 0
-
-            mode_times[mode_name] += duration
-            mode_task_counts[mode_name] += 1
-
-        # Convert to list of dictionaries
-        results = []
-        for mode_name, total_time in mode_times.items():
-            results.append(  # type: ignore
-                {
-                    "mode": mode_name,
-                    "total_time": self._format_duration(total_time),
-                    "total_seconds": int(total_time.total_seconds()),
-                    "task_count": str(mode_task_counts[mode_name]),
-                }
-            )
-
-        # Sort results
-        if sort_by == "time":
-
-            def time_key(x: dict[str, Any]) -> int:
-                return int(x["total_seconds"])
-
-            results.sort(key=time_key, reverse=reverse)  # type: ignore
-        elif sort_by == "mode":
-
-            def mode_key(x: dict[str, Any]) -> str:
-                return str(x["mode"])
-
-            results.sort(key=mode_key, reverse=reverse)  # type: ignore
-        else:  # default to mode for this analysis type
-
-            def default_key(x: dict[str, Any]) -> str:
-                return str(x["mode"])
-
-            results.sort(key=default_key, reverse=reverse)  # type: ignore
-
-        return results  # type: ignore
+        return self._analyze_by_type("mode", sort_by, reverse)
 
     def analyze_by_project_mode(
         self, sort_by: str = "time", reverse: bool = False
     ) -> list[dict[str, Any]]:
         """Analyze tasks by project-mode combination and return results."""
-        data = self._load_data()
+        return self._analyze_by_type("project-mode", sort_by, reverse)
 
-        # Group by project and mode name combination and calculate total time
-        project_mode_times: dict[str, timedelta] = {}
-        project_mode_task_counts: dict[str, int] = {}
-        project_mode_pairs: dict[str, tuple[str, str]] = {}
+    @classmethod
+    def _get_analysis_config(cls, analysis_type: str) -> dict[str, Any]:
+        """Get configuration for analysis type."""
+        return {
+            "mode": {
+                "title": "TaskChute Cloud - Mode Time Analysis",
+                "columns": [
+                    ("Mode", "cyan"),
+                    ("Total Time", "green"),
+                    ("Task Count", "yellow"),
+                ],
+                "percentage_style": "magenta",
+                "fields": ["mode", "total_time", "task_count"],
+                "csv_header": "Mode,Total Time,Task Count",
+            },
+            "project": {
+                "title": "TaskChute Cloud - Project Time Analysis",
+                "columns": [
+                    ("Project", "cyan"),
+                    ("Total Time", "green"),
+                    ("Task Count", "yellow"),
+                ],
+                "percentage_style": "bright_red",
+                "fields": ["project", "total_time", "task_count"],
+                "csv_header": "Project,Total Time,Task Count",
+            },
+            "project-mode": {
+                "title": "TaskChute Cloud - Project x Mode Time Analysis",
+                "columns": [
+                    ("Project", "cyan"),
+                    ("Mode", "magenta"),
+                    ("Total Time", "green"),
+                    ("Task Count", "yellow"),
+                ],
+                "percentage_style": "bright_blue",
+                "fields": ["project", "mode", "total_time", "task_count"],
+                "csv_header": "Project,Mode,Total Time,Task Count",
+            },
+        }[analysis_type]
 
-        for _, row in data.iterrows():  # type: ignore
-            project_name = row["プロジェクト名"]
-            mode_name = row["モード名"]
-            actual_time = row["実績時間"]
+    def _create_table(
+        self, results: list[dict[str, Any]], analysis_type: str, base_time: str | None
+    ) -> Table:
+        """Create table for analysis results."""
+        config = self._get_analysis_config(analysis_type)
+        title = config["title"]
+        if base_time is not None:
+            title += f" (Base: {base_time})"
 
-            # Skip rows without project or mode name
-            if (  # type: ignore
-                pd.isna(project_name)  # type: ignore
-                or project_name == ""
-                or pd.isna(mode_name)  # type: ignore
-                or mode_name == ""
-            ):
-                continue
+        table = Table(title=title)
 
-            # Ensure both are strings
-            if not isinstance(project_name, str) or not isinstance(mode_name, str):
-                continue
-
-            # Create a composite key for project-mode combination
-            composite_key = f"{project_name} | {mode_name}"
-            duration = self._parse_time_duration(actual_time)
-
-            if composite_key not in project_mode_times:
-                project_mode_times[composite_key] = timedelta(0)
-                project_mode_task_counts[composite_key] = 0
-                project_mode_pairs[composite_key] = (project_name, mode_name)
-
-            project_mode_times[composite_key] += duration
-            project_mode_task_counts[composite_key] += 1
-
-        # Convert to list of dictionaries
-        results = []
-        for composite_key, total_time in project_mode_times.items():
-            project_name, mode_name = project_mode_pairs[composite_key]
-            results.append(  # type: ignore
-                {
-                    "project": project_name,
-                    "mode": mode_name,
-                    "project_mode": composite_key,
-                    "total_time": self._format_duration(total_time),
-                    "total_seconds": int(total_time.total_seconds()),
-                    "task_count": str(project_mode_task_counts[composite_key]),
-                }
+        # Add columns
+        for column_name, style in config["columns"]:
+            table.add_column(
+                column_name,
+                style=style,
+                no_wrap=True if column_name in ["Mode", "Project"] else False,
+                justify="right"
+                if column_name in ["Total Time", "Task Count"]
+                else "left",
             )
 
-        # Sort results
-        if sort_by == "time":
-
-            def time_key(x: dict[str, Any]) -> int:
-                return int(x["total_seconds"])
-
-            results.sort(key=time_key, reverse=reverse)  # type: ignore
-        elif sort_by == "project":
-
-            def project_key(x: dict[str, Any]) -> tuple[str, str]:
-                return (str(x["project"]), str(x["mode"]))
-
-            results.sort(key=project_key, reverse=reverse)  # type: ignore
-        elif sort_by == "mode":
-
-            def mode_key(x: dict[str, Any]) -> tuple[str, str]:
-                return (str(x["mode"]), str(x["project"]))
-
-            results.sort(key=mode_key, reverse=reverse)  # type: ignore
-        else:  # default to project-mode combination
-
-            def default_key(x: dict[str, Any]) -> tuple[str, str]:
-                return (str(x["project"]), str(x["mode"]))
-
-            results.sort(key=default_key, reverse=reverse)  # type: ignore
-
-        return results  # type: ignore
-
-    def _create_mode_table(
-        self, results: list[dict[str, Any]], base_time: str | None
-    ) -> Table:
-        """Create table for mode analysis."""
-        title = "TaskChute Cloud - Mode Time Analysis"
         if base_time is not None:
-            title += f" (Base: {base_time})"
-        table = Table(title=title)
-        table.add_column("Mode", style="cyan", no_wrap=True)
-        table.add_column("Total Time", style="green", justify="right")
-        table.add_column("Task Count", style="yellow", justify="right")
-        if base_time is not None:
-            table.add_column("Percentage", style="magenta", justify="right")
+            table.add_column(
+                "Percentage", style=config["percentage_style"], justify="right"
+            )
 
+        # Add rows
         for result in results:
-            row_data = [
-                str(result["mode"]),
-                str(result["total_time"]),
-                str(result["task_count"]),
-            ]
+            row_data = [str(result[field]) for field in config["fields"]]
             if base_time is not None:
                 row_data.append(str(result["percentage"]))
             table.add_row(*row_data)
-        return table
 
-    def _create_project_mode_table(
-        self, results: list[dict[str, Any]], base_time: str | None
-    ) -> Table:
-        """Create table for project-mode analysis."""
-        title = "TaskChute Cloud - Project x Mode Time Analysis"
-        if base_time is not None:
-            title += f" (Base: {base_time})"
-        table = Table(title=title)
-        table.add_column("Project", style="cyan", no_wrap=True)
-        table.add_column("Mode", style="magenta", no_wrap=True)
-        table.add_column("Total Time", style="green", justify="right")
-        table.add_column("Task Count", style="yellow", justify="right")
-        if base_time is not None:
-            table.add_column("Percentage", style="bright_blue", justify="right")
-
-        for result in results:
-            row_data = [
-                str(result["project"]),
-                str(result["mode"]),
-                str(result["total_time"]),
-                str(result["task_count"]),
-            ]
-            if base_time is not None:
-                row_data.append(str(result["percentage"]))
-            table.add_row(*row_data)
-        return table
-
-    def _create_project_table(
-        self, results: list[dict[str, Any]], base_time: str | None
-    ) -> Table:
-        """Create table for project analysis."""
-        title = "TaskChute Cloud - Project Time Analysis"
-        if base_time is not None:
-            title += f" (Base: {base_time})"
-        table = Table(title=title)
-        table.add_column("Project", style="cyan", no_wrap=True)
-        table.add_column("Total Time", style="green", justify="right")
-        table.add_column("Task Count", style="yellow", justify="right")
-        if base_time is not None:
-            table.add_column("Percentage", style="bright_red", justify="right")
-
-        for result in results:
-            row_data = [
-                str(result["project"]),
-                str(result["total_time"]),
-                str(result["task_count"]),
-            ]
-            if base_time is not None:
-                row_data.append(str(result["percentage"]))
-            table.add_row(*row_data)
         return table
 
     def display_table(
@@ -391,12 +315,7 @@ class TaskAnalyzer:
         if base_time is not None:
             results = self._add_percentage_to_results(results, base_time)
 
-        if analysis_type == "mode":
-            table = self._create_mode_table(results, base_time)
-        elif analysis_type == "project-mode":
-            table = self._create_project_mode_table(results, base_time)
-        else:
-            table = self._create_project_table(results, base_time)
+        table = self._create_table(results, analysis_type, base_time)
 
         self.console.print(table)
 
@@ -410,37 +329,22 @@ class TaskAnalyzer:
         # Add percentage column if base_time is provided
         if base_time is not None:
             results = self._add_percentage_to_results(results, base_time)
-        # Remove internal fields for JSON output
+
+        config = self._get_analysis_config(analysis_type)
         json_results: list[dict[str, Any]] = []
+
         for result in results:
-            if analysis_type == "mode":
-                mode_result = {
-                    "mode": result["mode"],
-                    "total_time": result["total_time"],
-                    "task_count": int(result["task_count"]),
-                }
-                if base_time is not None:
-                    mode_result["percentage"] = result["percentage"]
-                json_results.append(mode_result)  # type: ignore
-            elif analysis_type == "project-mode":
-                project_mode_result = {
-                    "project": result["project"],
-                    "mode": result["mode"],
-                    "total_time": result["total_time"],
-                    "task_count": int(result["task_count"]),
-                }
-                if base_time is not None:
-                    project_mode_result["percentage"] = result["percentage"]
-                json_results.append(project_mode_result)  # type: ignore
-            else:
-                project_result = {
-                    "project": result["project"],
-                    "total_time": result["total_time"],
-                    "task_count": int(result["task_count"]),
-                }
-                if base_time is not None:
-                    project_result["percentage"] = result["percentage"]
-                json_results.append(project_result)  # type: ignore
+            json_result = {}
+            for field in config["fields"]:
+                if field == "task_count":
+                    json_result[field] = int(result[field])
+                else:
+                    json_result[field] = result[field]
+
+            if base_time is not None:
+                json_result["percentage"] = result["percentage"]
+
+            json_results.append(json_result)
 
         # Create final output with metadata if base_time is provided
         if base_time is not None:
@@ -454,59 +358,26 @@ class TaskAnalyzer:
 
         print(json.dumps(output, ensure_ascii=False, indent=2))
 
-    def _print_mode_csv(
-        self, results: list[dict[str, Any]], base_time: str | None
+    def _print_csv(
+        self, results: list[dict[str, Any]], analysis_type: str, base_time: str | None
     ) -> None:
-        """Print CSV for mode analysis."""
-        # Add base time information as comment if provided
-        if base_time is not None:
-            print(f"# Base Time: {base_time}")
-        header = "Mode,Total Time,Task Count"
-        if base_time is not None:
-            header += ",Percentage"
-        print(header)
-        for result in results:
-            row = f"{result['mode']},{result['total_time']},{result['task_count']}"
-            if base_time is not None:
-                row += f",{result['percentage']}"
-            print(row)
+        """Print CSV output for analysis results."""
+        config = self._get_analysis_config(analysis_type)
 
-    def _print_project_mode_csv(
-        self, results: list[dict[str, Any]], base_time: str | None
-    ) -> None:
-        """Print CSV for project-mode analysis."""
         # Add base time information as comment if provided
         if base_time is not None:
             print(f"# Base Time: {base_time}")
-        header = "Project,Mode,Total Time,Task Count"
-        if base_time is not None:
-            header += ",Percentage"
-        print(header)
-        for result in results:
-            row = (
-                f"{result['project']},{result['mode']},"
-                f"{result['total_time']},{result['task_count']}"
-            )
-            if base_time is not None:
-                row += f",{result['percentage']}"
-            print(row)
 
-    def _print_project_csv(
-        self, results: list[dict[str, Any]], base_time: str | None
-    ) -> None:
-        """Print CSV for project analysis."""
-        # Add base time information as comment if provided
-        if base_time is not None:
-            print(f"# Base Time: {base_time}")
-        header = "Project,Total Time,Task Count"
+        header = config["csv_header"]
         if base_time is not None:
             header += ",Percentage"
         print(header)
+
         for result in results:
-            row = f"{result['project']},{result['total_time']},{result['task_count']}"
+            row_values = [str(result[field]) for field in config["fields"]]
             if base_time is not None:
-                row += f",{result['percentage']}"
-            print(row)
+                row_values.append(str(result["percentage"]))
+            print(",".join(row_values))
 
     def display_csv(
         self,
@@ -519,9 +390,4 @@ class TaskAnalyzer:
         if base_time is not None:
             results = self._add_percentage_to_results(results, base_time)
 
-        if analysis_type == "mode":
-            self._print_mode_csv(results, base_time)
-        elif analysis_type == "project-mode":
-            self._print_project_mode_csv(results, base_time)
-        else:
-            self._print_project_csv(results, base_time)
+        self._print_csv(results, analysis_type, base_time)
