@@ -312,10 +312,10 @@ class TaskAnalyzer:
             title += f" (Base: {base_time})"
         table = Table(title=title)
         table.add_column("Mode", style="cyan", no_wrap=True)
-        table.add_column("Total Time", style="green")
-        table.add_column("Task Count", style="yellow")
+        table.add_column("Total Time", style="green", justify="right")
+        table.add_column("Task Count", style="yellow", justify="right")
         if base_time is not None:
-            table.add_column("Percentage", style="magenta")
+            table.add_column("Percentage", style="magenta", justify="right")
 
         for result in results:
             row_data = [
@@ -338,10 +338,10 @@ class TaskAnalyzer:
         table = Table(title=title)
         table.add_column("Project", style="cyan", no_wrap=True)
         table.add_column("Mode", style="magenta", no_wrap=True)
-        table.add_column("Total Time", style="green")
-        table.add_column("Task Count", style="yellow")
+        table.add_column("Total Time", style="green", justify="right")
+        table.add_column("Task Count", style="yellow", justify="right")
         if base_time is not None:
-            table.add_column("Percentage", style="bright_blue")
+            table.add_column("Percentage", style="bright_blue", justify="right")
 
         for result in results:
             row_data = [
@@ -364,10 +364,10 @@ class TaskAnalyzer:
             title += f" (Base: {base_time})"
         table = Table(title=title)
         table.add_column("Project", style="cyan", no_wrap=True)
-        table.add_column("Total Time", style="green")
-        table.add_column("Task Count", style="yellow")
+        table.add_column("Total Time", style="green", justify="right")
+        table.add_column("Task Count", style="yellow", justify="right")
         if base_time is not None:
-            table.add_column("Percentage", style="bright_red")
+            table.add_column("Percentage", style="bright_red", justify="right")
 
         for result in results:
             row_data = [
