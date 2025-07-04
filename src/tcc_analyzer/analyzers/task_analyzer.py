@@ -99,12 +99,12 @@ class TaskAnalyzer:
 
         for _, row in data.iterrows():  # type: ignore
             # Extract field values
-            field_data = {}
+            field_data: dict[str, str] = {}
             skip_row = False
 
             for field in fields:
                 value = row[field]
-                if pd.isna(value) or value == "":
+                if pd.isna(value) or value == "":  # type: ignore[misc]
                     skip_row = True
                     break
                 if not isinstance(value, str):
@@ -116,6 +116,7 @@ class TaskAnalyzer:
                 continue
 
             # Create composite key
+            composite_key: str
             if len(fields) == 1:
                 composite_key = field_data[fields[0]]
             else:
@@ -132,9 +133,9 @@ class TaskAnalyzer:
             task_counts[composite_key] += 1
 
         # Convert to results format
-        results = {}
+        results: dict[str, dict[str, Any]] = {}
         for composite_key, total_time in times.items():
-            result = {
+            result: dict[str, Any] = {
                 "total_time": self._format_duration(total_time),
                 "total_seconds": int(total_time.total_seconds()),
                 "task_count": str(task_counts[composite_key]),
@@ -334,7 +335,7 @@ class TaskAnalyzer:
         json_results: list[dict[str, Any]] = []
 
         for result in results:
-            json_result = {}
+            json_result: dict[str, Any] = {}
             for field in config["fields"]:
                 if field == "task_count":
                     json_result[field] = int(result[field])
