@@ -5,7 +5,12 @@ from pathlib import Path
 
 import click
 
-from tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
+try:
+    # Try absolute import first (works when package is installed)
+    from tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
+except ImportError:
+    # Fall back to relative import (works in development/test environments)
+    from .analyzers.task_analyzer import TaskAnalyzer
 
 
 @click.group()
