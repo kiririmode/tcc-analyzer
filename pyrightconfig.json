@@ -5,7 +5,7 @@
   "typeCheckingMode": "strict",
   "reportMissingImports": true,
   "reportMissingTypeStubs": false,
-  "reportUnknownMemberType": false,
+  "reportUnknownMemberType": true,
   "reportUnknownParameterType": false,
   "reportUnnecessaryTypeIgnore": true,
   "reportUnusedImport": true,

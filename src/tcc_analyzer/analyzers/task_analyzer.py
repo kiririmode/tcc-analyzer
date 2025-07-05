@@ -365,7 +365,7 @@ class TaskAnalyzer:
         config = self._get_analysis_config(analysis_type)
 
         # Prepare row data
-        rows = []
+        rows: list[list[str]] = []
         for result in results:
             row_data = [str(result[field]) for field in config["fields"]]
             if base_time is not None:

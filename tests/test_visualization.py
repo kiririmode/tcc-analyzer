@@ -6,6 +6,8 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 
 from tcc_analyzer.visualization import (
     BarChartVisualizer,
@@ -15,6 +17,11 @@ from tcc_analyzer.visualization import (
     PieChartVisualizer,
     StatisticalAnalyzer,
     VisualizationFactory,
+)
+from tcc_analyzer.visualization.charts import (
+    HeatmapVisualizer,
+    HistogramVisualizer,
+    TimeSeriesVisualizer,
 )
 
 
@@ -385,7 +392,7 @@ class TestStatisticalAnalyzer:
 
     def test_empty_data_handling(self):
         """Test handling of empty data."""
-        empty_data = []
+        empty_data: list[dict[str, Any]] = []
 
         # Test descriptive stats
         stats = StatisticalAnalyzer.calculate_descriptive_stats(empty_data, "value")
@@ -479,6 +486,8 @@ class TestBaseVisualizer:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         visualizer = BarChartVisualizer()
+        fig: Figure
+        ax: Axes
         fig, ax = visualizer.setup_figure()
 
         assert fig == mock_fig
@@ -655,6 +664,8 @@ class TestBarChartVisualizer:
         ]
 
         visualizer = BarChartVisualizer()
+        fig: Figure
+        ax: Axes
         fig, ax = visualizer.create_chart(data, x_key="project", y_key="total_seconds")
 
         assert fig == mock_fig
@@ -704,6 +715,8 @@ class TestBarChartVisualizer:
         data = [{"name": "Test", "value": 100}]
 
         visualizer = BarChartVisualizer()
+        fig: Figure
+        ax: Axes
         fig, ax = visualizer.create_chart(data, x_key="name", y_key="value")
 
         assert fig == mock_fig
@@ -800,8 +813,10 @@ class TestPieChartVisualizer:
         ]
 
         visualizer = PieChartVisualizer()
+        fig: Figure
+        ax: Axes
         fig, ax = visualizer.create_chart(
-            data, label_key="project", value_key="total_seconds"
+            data, x_key="project", y_key="total_seconds"
         )
 
         assert fig == mock_fig
@@ -829,7 +844,9 @@ class TestPieChartVisualizer:
         ]
 
         visualizer = PieChartVisualizer()
-        fig, ax = visualizer.create_chart(data, label_key="category", value_key="value")
+        fig: Figure
+        ax: Axes
+        fig, ax = visualizer.create_chart(data, x_key="category", y_key="value")
 
         assert fig == mock_fig
         assert ax == mock_ax
@@ -852,7 +869,7 @@ class TestPieChartVisualizer:
 
         visualizer = PieChartVisualizer()
         visualizer.create_chart(
-            data, label_key="project", value_key="total_seconds", donut=True
+            data, x_key="project", y_key="total_seconds", donut=True
         )
 
         # Should call gca().add_artist for donut effect
@@ -873,7 +890,7 @@ class TestPieChartVisualizer:
 
         with pytest.raises(ValueError, match="No positive values for pie chart"):
             visualizer.create_chart(
-                data, label_key="project", value_key="total_seconds"
+                data, x_key="project", y_key="total_seconds"
             )
 
     def test_create_chart_invalid_data(self, mock_style: Any, mock_subplots: Any):
@@ -885,7 +902,7 @@ class TestPieChartVisualizer:
         visualizer = PieChartVisualizer()
 
         with pytest.raises(ValueError, match="Invalid data for pie chart"):
-            visualizer.create_chart([], label_key="project", value_key="total_seconds")
+            visualizer.create_chart([], x_key="project", y_key="total_seconds")
 
 
 @patch("matplotlib.pyplot.subplots")
@@ -904,9 +921,9 @@ class TestTimeSeriesVisualizer:
             {"date": "2023-01-02", "value": 150},
         ]
 
-        from tcc_analyzer.visualization.charts import TimeSeriesVisualizer
-
         visualizer = TimeSeriesVisualizer()
+        fig: Figure
+        ax: Axes
         fig, ax = visualizer.create_chart(data, x_key="date", y_key="value")
 
         assert fig == mock_fig
@@ -920,8 +937,6 @@ class TestTimeSeriesVisualizer:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         data = [{"date": "2023-01-01", "value": 100}]
-
-        from tcc_analyzer.visualization.charts import TimeSeriesVisualizer
 
         visualizer = TimeSeriesVisualizer()
         visualizer.create_chart(data, x_key="date", y_key="value", show_markers=True)
@@ -938,8 +953,6 @@ class TestTimeSeriesVisualizer:
 
         data = [{"date": "2023-01-01", "value": 100}]
 
-        from tcc_analyzer.visualization.charts import TimeSeriesVisualizer
-
         visualizer = TimeSeriesVisualizer()
         visualizer.create_chart(data, x_key="date", y_key="value", show_markers=False)
 
@@ -954,8 +967,6 @@ class TestTimeSeriesVisualizer:
         mock_subplots.return_value = (mock_fig, mock_ax)
 
         data = [{"wrong_key": "2023-01-01", "value": 100}]
-
-        from tcc_analyzer.visualization.charts import TimeSeriesVisualizer
 
         visualizer = TimeSeriesVisualizer()
 
@@ -980,11 +991,11 @@ class TestHeatmapVisualizer:
             {"x": 3, "y": 6, "z": 9},
         ]
 
-        from tcc_analyzer.visualization.charts import HeatmapVisualizer
-
         with patch("seaborn.heatmap") as mock_heatmap:
             visualizer = HeatmapVisualizer()
-            fig, ax = visualizer.create_chart(data)
+            fig: Figure
+            ax: Axes
+            fig, ax = visualizer.create_chart(data, x_key="x", y_key="y")
 
             assert fig == mock_fig
             assert ax == mock_ax
@@ -1003,14 +1014,12 @@ class TestHeatmapVisualizer:
             {"x": 2, "text": "world"},
         ]
 
-        from tcc_analyzer.visualization.charts import HeatmapVisualizer
-
         visualizer = HeatmapVisualizer()
 
         with pytest.raises(
             ValueError, match="Need at least 2 numeric columns for heatmap"
         ):
-            visualizer.create_chart(data)
+            visualizer.create_chart(data, x_key="x", y_key="y")
 
 
 @patch("matplotlib.pyplot.subplots")
@@ -1032,10 +1041,10 @@ class TestHistogramVisualizer:
             {"total_seconds": 1800},
         ]
 
-        from tcc_analyzer.visualization.charts import HistogramVisualizer
-
         visualizer = HistogramVisualizer()
-        fig, ax = visualizer.create_chart(data, value_key="total_seconds")
+        fig: Figure
+        ax: Axes
+        fig, ax = visualizer.create_chart(data, x_key="total_seconds", y_key="dummy")
 
         assert fig == mock_fig
         assert ax == mock_ax
@@ -1055,10 +1064,10 @@ class TestHistogramVisualizer:
             {"score": 78},
         ]
 
-        from tcc_analyzer.visualization.charts import HistogramVisualizer
-
         visualizer = HistogramVisualizer()
-        fig, ax = visualizer.create_chart(data, value_key="score")
+        fig: Figure
+        ax: Axes
+        fig, ax = visualizer.create_chart(data, x_key="score", y_key="dummy")
 
         assert fig == mock_fig
         assert ax == mock_ax
@@ -1072,10 +1081,8 @@ class TestHistogramVisualizer:
 
         data = [{"value": 100}, {"value": 200}]
 
-        from tcc_analyzer.visualization.charts import HistogramVisualizer
-
         visualizer = HistogramVisualizer()
-        visualizer.create_chart(data, value_key="value", show_stats=True)
+        visualizer.create_chart(data, x_key="value", y_key="dummy", show_stats=True)
 
         # Should call text method to add statistics
         mock_ax.text.assert_called_once()
@@ -1088,10 +1095,8 @@ class TestHistogramVisualizer:
 
         data = [{"value": 100}, {"value": 200}]
 
-        from tcc_analyzer.visualization.charts import HistogramVisualizer
-
         visualizer = HistogramVisualizer()
-        visualizer.create_chart(data, value_key="value", show_stats=False)
+        visualizer.create_chart(data, x_key="value", y_key="dummy", show_stats=False)
 
         # Should not call text method when show_stats=False
         mock_ax.text.assert_not_called()
@@ -1104,9 +1109,7 @@ class TestHistogramVisualizer:
 
         data = [{"text": "hello"}, {"text": "world"}]
 
-        from tcc_analyzer.visualization.charts import HistogramVisualizer
-
         visualizer = HistogramVisualizer()
 
         with pytest.raises(ValueError, match="No numeric values found for histogram"):
-            visualizer.create_chart(data, value_key="missing_key")
+            visualizer.create_chart(data, x_key="missing_key", y_key="dummy")

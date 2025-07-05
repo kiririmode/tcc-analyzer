@@ -87,7 +87,7 @@ class BarChartVisualizer(BaseVisualizer, ChartStyleMixin):
             raise ValueError("Invalid data for bar chart")
 
         # Create bar chart
-        bars = ax.bar(labels, values, **self._get_bar_styling(**kwargs))
+        bars = ax.bar(labels, values, **self._get_bar_styling(**kwargs))  # type: ignore[misc]
 
         # Add value labels on bars if requested
         if kwargs.get("show_values", True):
@@ -106,7 +106,7 @@ class BarChartVisualizer(BaseVisualizer, ChartStyleMixin):
             else:
                 label = f"{value:.0f}h"
 
-            ax.text(
+            ax.text(  # type: ignore[misc]
                 bar.get_x() + bar.get_width() / 2,
                 height,
                 label,
@@ -120,14 +120,14 @@ class PieChartVisualizer(BaseVisualizer):
     """Pie chart visualizer for proportional data."""
 
     def create_chart(
-        self, data: list[dict[str, Any]], label_key: str, value_key: str, **kwargs: Any
+        self, data: list[dict[str, Any]], x_key: str, y_key: str, **kwargs: Any
     ) -> tuple[Figure, Axes]:
         """Create a pie chart.
 
         Args:
             data: Analysis results data
-            label_key: Key for slice labels
-            value_key: Key for slice values
+            x_key: Key for slice labels (label_key)
+            y_key: Key for slice values (value_key)
             **kwargs: Additional chart parameters
 
         Returns:
@@ -136,7 +136,9 @@ class PieChartVisualizer(BaseVisualizer):
         """
         fig, ax = self.setup_figure()
 
-        # Extract data
+        # Extract data (x_key is label_key, y_key is value_key for pie charts)
+        label_key = x_key
+        value_key = y_key
         raw_labels = DataProcessor.extract_values(data, label_key)
         labels = DataProcessor.sanitize_labels(raw_labels)
 
@@ -162,9 +164,16 @@ class PieChartVisualizer(BaseVisualizer):
 
         # Create pie chart with modern styling
         pie_style = self._get_pie_styling(**kwargs)
-        _, texts, autotexts = ax.pie(
+        pie_result = ax.pie(  # type: ignore[misc]
             values, labels=labels, autopct="%1.1f%%", **pie_style
         )
+        # Handle both 2-tuple and 3-tuple returns from pie()
+        pie_tuple_length = 3
+        if len(pie_result) == pie_tuple_length:
+            _, texts, autotexts = pie_result
+        else:
+            _, texts = pie_result
+            autotexts = []
 
         # Customize text appearance for better readability
         for autotext in autotexts:
@@ -254,17 +263,17 @@ class TimeSeriesVisualizer(BaseVisualizer):
             df[x_key] = pd.to_datetime(df[x_key], errors="coerce")
 
         # Sort by time
-        df = df.sort_values(x_key)
+        df = df.sort_values(x_key)  # type: ignore[misc]
 
         # Create line plot
-        ax.plot(df[x_key], df[y_key], **self._get_line_styling(**kwargs))
+        ax.plot(df[x_key], df[y_key], **self._get_line_styling(**kwargs))  # type: ignore[misc]
 
         # Add markers if requested
         if kwargs.get("show_markers", True):
-            ax.scatter(df[x_key], df[y_key], **self._get_marker_styling(**kwargs))
+            ax.scatter(df[x_key], df[y_key], **self._get_marker_styling(**kwargs))  # type: ignore[misc]
 
         # Format x-axis for dates
-        if pd.api.types.is_datetime64_any_dtype(df[x_key]):
+        if pd.api.types.is_datetime64_any_dtype(df[x_key]):  # type: ignore[misc]
             fig.autofmt_xdate()
 
         return fig, ax
@@ -292,12 +301,14 @@ class HeatmapVisualizer(BaseVisualizer):
     """Heatmap visualizer for correlation matrices."""
 
     def create_chart(
-        self, data: list[dict[str, Any]], **kwargs: Any
+        self, data: list[dict[str, Any]], x_key: str, y_key: str, **kwargs: Any
     ) -> tuple[Figure, Axes]:
         """Create a heatmap.
 
         Args:
             data: Analysis results data
+            x_key: Not used for heatmaps but required by interface
+            y_key: Not used for heatmaps but required by interface
             **kwargs: Additional chart parameters
 
         Returns:
@@ -319,7 +330,7 @@ class HeatmapVisualizer(BaseVisualizer):
         corr_matrix = df[numeric_columns].corr()
 
         # Create heatmap
-        sns.heatmap(
+        sns.heatmap(  # type: ignore[misc]
             corr_matrix,
             annot=kwargs.get("show_values", True),
             cmap=kwargs.get("colormap", "coolwarm"),
@@ -336,13 +347,14 @@ class HistogramVisualizer(BaseVisualizer, ChartStyleMixin):
     """Histogram visualizer for distribution analysis."""
 
     def create_chart(
-        self, data: list[dict[str, Any]], value_key: str, **kwargs: Any
+        self, data: list[dict[str, Any]], x_key: str, y_key: str, **kwargs: Any
     ) -> tuple[Figure, Axes]:
         """Create a histogram.
 
         Args:
             data: Analysis results data
-            value_key: Key for values to create histogram
+            x_key: Key for values to create histogram (value_key)
+            y_key: Not used for histograms but required by interface
             **kwargs: Additional chart parameters
 
         Returns:
@@ -352,6 +364,8 @@ class HistogramVisualizer(BaseVisualizer, ChartStyleMixin):
         fig, ax = self.setup_figure()
 
         # Extract numeric values (use hours for better readability)
+        # For histograms, x_key contains the value_key
+        value_key = x_key
         if value_key == "total_seconds":
             values = DataProcessor.extract_hours_values(data, value_key)
         else:
@@ -361,7 +375,7 @@ class HistogramVisualizer(BaseVisualizer, ChartStyleMixin):
             raise ValueError("No numeric values found for histogram")
 
         # Create histogram
-        ax.hist(
+        ax.hist(  # type: ignore[misc]
             values, bins=kwargs.get("bins", 30), **self._get_histogram_styling(**kwargs)
         )
 
@@ -378,7 +392,7 @@ class HistogramVisualizer(BaseVisualizer, ChartStyleMixin):
 
         # Format statistics with appropriate units (hours)
         stats_text = f"Mean: {mean_val:.1f}h\nStd: {std_val:.1f}h"
-        ax.text(
+        ax.text(  # type: ignore[misc]
             0.7,
             0.9,
             stats_text,

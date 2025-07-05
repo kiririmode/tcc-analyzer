@@ -1,10 +1,12 @@
 """Statistical analysis utilities for visualization data."""
 
+import warnings
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
 import pandas as pd
-from scipy import stats
+from scipy import stats  # type: ignore[import]
 
 from .base import DataProcessor
 
@@ -43,7 +45,11 @@ class StatisticalAnalyzer:
 
     @staticmethod
     def _apply_statistical_analysis(
-        data: list[dict[str, Any]], value_key: str, analysis_func, *args, **kwargs
+        data: list[dict[str, Any]],
+        value_key: str,
+        analysis_func: Callable[..., Any],
+        *args: Any,
+        **kwargs: Any
     ) -> Any:
         """Apply statistical analysis with common validation pattern.
 
@@ -78,7 +84,7 @@ class StatisticalAnalyzer:
             "count": len(values),
             "mean": np.mean(values),
             "median": np.median(values),
-            "mode": stats.mode(values, keepdims=True)[0][0],
+            "mode": stats.mode(values, keepdims=True)[0][0],  # type: ignore[misc]
             "std": np.std(values),
             "var": np.var(values),
             "min": np.min(values),
@@ -87,8 +93,8 @@ class StatisticalAnalyzer:
             "q1": np.percentile(values, 25),
             "q3": np.percentile(values, 75),
             "iqr": np.percentile(values, 75) - np.percentile(values, 25),
-            "skewness": stats.skew(values),
-            "kurtosis": stats.kurtosis(values),
+            "skewness": stats.skew(values),  # type: ignore[misc]
+            "kurtosis": stats.kurtosis(values),  # type: ignore[misc]
         }
 
     @staticmethod
@@ -166,7 +172,7 @@ class StatisticalAnalyzer:
             return {}
 
         # Group by category and calculate stats
-        grouped = df.groupby(category_key)[value_key].agg(
+        grouped = df.groupby(category_key)[value_key].agg(  # type: ignore[misc]
             ["count", "sum", "mean", "std", "min", "max"]
         )
 
@@ -175,7 +181,7 @@ class StatisticalAnalyzer:
         grouped["percentage"] = (grouped["sum"] / total) * 100
 
         return {
-            "by_category": grouped.to_dict("index"),
+            "by_category": grouped.to_dict("index"),  # type: ignore[misc]
             "total_categories": len(grouped),
             "most_active_category": grouped["sum"].idxmax(),
             "least_active_category": grouped["sum"].idxmin(),
@@ -245,7 +251,7 @@ class StatisticalAnalyzer:
         values: list[float],
     ) -> tuple[list[int], dict[str, Any]]:
         """Detect outliers using Z-score method."""
-        z_scores = np.abs(stats.zscore(values))
+        z_scores = np.abs(stats.zscore(values))  # type: ignore[misc]
         threshold = 3
 
         outlier_indices = [i for i, z in enumerate(z_scores) if z > threshold]
@@ -306,21 +312,25 @@ class StatisticalAnalyzer:
         if time_key not in df.columns or value_key not in df.columns:
             return {}
 
-        # Convert time to datetime
-        df[time_key] = pd.to_datetime(df[time_key], errors="coerce")
-        df = df.dropna(subset=[time_key, value_key])
+        # Convert time to datetime with warning suppression
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message="Could not infer format")
+            df[time_key] = pd.to_datetime(df[time_key], errors="coerce")
+
+        df = df.dropna(subset=[time_key, value_key])  # type: ignore[misc]
 
         if df.empty:
             return {}
 
         # Sort by time
-        df = df.sort_values(time_key)
+        df = df.sort_values(time_key)  # type: ignore[misc]
 
         # Calculate linear trend
         x = np.arange(len(df))
-        y = df[value_key].values
+        y = df[value_key].values  # type: ignore[misc]
 
-        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+        # Use tuple unpacking for scipy.stats.linregress
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)  # type: ignore[misc]
 
         # Calculate moving averages
         df["ma_7"] = df[value_key].rolling(window=7).mean()
@@ -332,9 +342,9 @@ class StatisticalAnalyzer:
             "correlation_coefficient": r_value,
             "p_value": p_value,
             "standard_error": std_err,
-            "trend_direction": "increasing" if slope > 0 else "decreasing",
-            "trend_strength": abs(r_value),
-            "is_significant": p_value < 0.05,  # noqa: PLR2004
+            "trend_direction": "increasing" if slope > 0 else "decreasing",  # type: ignore[misc]
+            "trend_strength": abs(r_value),  # type: ignore[misc]
+            "is_significant": p_value < 0.05,  # type: ignore[misc]  # noqa: PLR2004
             "moving_avg_7": df["ma_7"].iloc[-1]
             if not df["ma_7"].isna().all()
             else None,

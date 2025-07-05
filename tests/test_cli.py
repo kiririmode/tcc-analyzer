@@ -520,10 +520,10 @@ class TestCLI:
         # Test that the imported modules are available
         # Since they are already imported at module level, we can check they exist
         # Import moved to the test to avoid linting issue about top-level imports
-        import sys
+        import sys  # noqa: PLC0415
         sys.path.insert(0, "src")
         try:
-            import tcc_analyzer.cli as cli
+            from tcc_analyzer import cli  # noqa: PLC0415
             # Verify the CLI module has the necessary components
             assert hasattr(cli, "TaskAnalyzer")
             assert hasattr(cli, "ChartType")

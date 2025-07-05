@@ -78,17 +78,21 @@ class BaseVisualizer(ABC):
             "ignore", message="findfont: Font family.*not found.*", category=UserWarning
         )
 
-        self._fig, self._ax = plt.subplots(figsize=self.figsize)
+        fig, ax = plt.subplots(figsize=self.figsize)  # type: ignore[misc]
+        self._fig = fig
+        self._ax = ax
         return self._fig, self._ax
 
     @abstractmethod
     def create_chart(
-        self, data: list[dict[str, Any]], **kwargs: Any
+        self, data: list[dict[str, Any]], x_key: str, y_key: str, **kwargs: Any
     ) -> tuple[Figure, Axes]:
         """Create the chart from data.
 
         Args:
             data: Analysis results data
+            x_key: Key for x-axis values
+            y_key: Key for y-axis values
             **kwargs: Additional chart-specific parameters
 
         Returns:
@@ -117,11 +121,11 @@ class BaseVisualizer(ABC):
             raise RuntimeError("Chart must be created before customization")
 
         if title:
-            self._ax.set_title(title, fontsize=14, fontweight="bold")
+            self._ax.set_title(title, fontsize=14, fontweight="bold")  # type: ignore[misc]
         if xlabel:
-            self._ax.set_xlabel(xlabel, fontsize=12)
+            self._ax.set_xlabel(xlabel, fontsize=12)  # type: ignore[misc]
         if ylabel:
-            self._ax.set_ylabel(ylabel, fontsize=12)
+            self._ax.set_ylabel(ylabel, fontsize=12)  # type: ignore[misc]
 
         # Apply additional customizations
         self._apply_custom_styling(**kwargs)
@@ -133,13 +137,13 @@ class BaseVisualizer(ABC):
 
         # Grid
         if kwargs.get("grid", True):
-            self._ax.grid(True, alpha=0.3)
+            self._ax.grid(True, alpha=0.3)  # type: ignore[misc]
 
         # Tick rotation
         if "xtick_rotation" in kwargs:
-            self._ax.tick_params(axis="x", rotation=kwargs["xtick_rotation"])
+            self._ax.tick_params(axis="x", rotation=kwargs["xtick_rotation"])  # type: ignore[misc]
         if "ytick_rotation" in kwargs:
-            self._ax.tick_params(axis="y", rotation=kwargs["ytick_rotation"])
+            self._ax.tick_params(axis="y", rotation=kwargs["ytick_rotation"])  # type: ignore[misc]
 
         # Tight layout
         if kwargs.get("tight_layout", True):
@@ -162,7 +166,7 @@ class BaseVisualizer(ABC):
         # Ensure proper file extension
         output_path = output_path.with_suffix(f".{format.value}")
 
-        self._fig.savefig(
+        self._fig.savefig(  # type: ignore[misc]
             output_path,
             format=format.value,
             dpi=dpi,
@@ -175,7 +179,7 @@ class BaseVisualizer(ABC):
         """Display chart in window."""
         if self._fig is None:
             raise RuntimeError("Chart must be created before showing")
-        plt.show()
+        plt.show()  # type: ignore[misc]
 
     def close_chart(self) -> None:
         """Close the chart and free resources."""
@@ -228,7 +232,7 @@ class DataProcessor:
     @staticmethod
     def extract_numeric_values(data: list[dict[str, Any]], key: str) -> list[float]:
         """Extract numeric values, converting time strings to seconds."""
-        values = []
+        values: list[float] = []
         for item in data:
             if key not in item:
                 continue
@@ -290,12 +294,12 @@ class DataProcessor:
         data: list[dict[str, Any]], value_key: str, n: int = 10
     ) -> list[dict[str, Any]]:
         """Filter top N items by value."""
-        numeric_values = []
+        numeric_values: list[tuple[dict[str, Any], float]] = []
         for item in data:
             if value_key in item:
                 try:
                     if value_key == "total_seconds":
-                        numeric_values.append((item, int(item[value_key])))
+                        numeric_values.append((item, float(item[value_key])))
                     else:
                         numeric_values.append((item, float(item[value_key])))
                 except (ValueError, TypeError):

@@ -236,7 +236,7 @@ def _create_line_chart(
         "Warning: Line charts require time-series data. Using simplified visualization."
     )
 
-    time_data = []
+    time_data: list[dict[str, Any]] = []
     for i, result in enumerate(results):
         seconds = result.get("total_seconds", 0)
         hours = seconds / 3600 if isinstance(seconds, int | float) else 0
