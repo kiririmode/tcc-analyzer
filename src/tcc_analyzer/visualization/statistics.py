@@ -49,7 +49,7 @@ class StatisticalAnalyzer:
         value_key: str,
         analysis_func: Callable[..., Any],
         *args: Any,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Any:
         """Apply statistical analysis with common validation pattern.
 

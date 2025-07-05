@@ -815,9 +815,7 @@ class TestPieChartVisualizer:
         visualizer = PieChartVisualizer()
         fig: Figure
         ax: Axes
-        fig, ax = visualizer.create_chart(
-            data, x_key="project", y_key="total_seconds"
-        )
+        fig, ax = visualizer.create_chart(data, x_key="project", y_key="total_seconds")
 
         assert fig == mock_fig
         assert ax == mock_ax
@@ -889,9 +887,7 @@ class TestPieChartVisualizer:
         visualizer = PieChartVisualizer()
 
         with pytest.raises(ValueError, match="No positive values for pie chart"):
-            visualizer.create_chart(
-                data, x_key="project", y_key="total_seconds"
-            )
+            visualizer.create_chart(data, x_key="project", y_key="total_seconds")
 
     def test_create_chart_invalid_data(self, mock_style: Any, mock_subplots: Any):
         """Test error with invalid data."""
