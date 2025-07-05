@@ -19,35 +19,43 @@ MAX_MINUTES_SECONDS = 60
 class TaskAnalyzer:
     """Analyzer for TaskChute Cloud task logs."""
 
-    def __init__(self, csv_file: Path) -> None:
-        """Initialize the analyzer with a CSV file."""
-        self.csv_file = csv_file
+    def __init__(self, csv_files: Path | list[Path]) -> None:
+        """Initialize the analyzer with CSV file(s)."""
+        if isinstance(csv_files, Path):
+            self.csv_files = [csv_files]
+        else:
+            self.csv_files = csv_files
         self.console = Console()
         self._data: pd.DataFrame | None = None
 
     def _load_data(self) -> pd.DataFrame:
         """Load and parse the CSV data."""
         if self._data is None:
-            try:
-                # Read CSV with UTF-8 encoding, handling BOM
-                self._data = pd.read_csv(self.csv_file, encoding="utf-8-sig")  # type: ignore
-                # Parse dates if columns exist
-                if (
-                    "開始日時" in self._data.columns
-                    and "終了日時" in self._data.columns
-                ):
-                    self._data["開始日時"] = pd.to_datetime(self._data["開始日時"])  # type: ignore
-                    self._data["終了日時"] = pd.to_datetime(self._data["終了日時"])  # type: ignore
-            except UnicodeDecodeError:
-                # Fallback to Shift-JIS if UTF-8 fails
-                self._data = pd.read_csv(self.csv_file, encoding="shift-jis")  # type: ignore
-                # Parse dates if columns exist
-                if (
-                    "開始日時" in self._data.columns
-                    and "終了日時" in self._data.columns
-                ):
-                    self._data["開始日時"] = pd.to_datetime(self._data["開始日時"])  # type: ignore
-                    self._data["終了日時"] = pd.to_datetime(self._data["終了日時"])  # type: ignore
+            dataframes: list[pd.DataFrame] = []
+            for csv_file in self.csv_files:
+                try:
+                    # Read CSV with UTF-8 encoding, handling BOM
+                    df = pd.read_csv(csv_file, encoding="utf-8-sig")  # type: ignore
+                    # Parse dates if columns exist
+                    if "開始日時" in df.columns and "終了日時" in df.columns:
+                        df["開始日時"] = pd.to_datetime(df["開始日時"])  # type: ignore
+                        df["終了日時"] = pd.to_datetime(df["終了日時"])  # type: ignore
+                    dataframes.append(df)
+                except UnicodeDecodeError:
+                    # Fallback to Shift-JIS if UTF-8 fails
+                    df = pd.read_csv(csv_file, encoding="shift-jis")  # type: ignore
+                    # Parse dates if columns exist
+                    if "開始日時" in df.columns and "終了日時" in df.columns:
+                        df["開始日時"] = pd.to_datetime(df["開始日時"])  # type: ignore
+                        df["終了日時"] = pd.to_datetime(df["終了日時"])  # type: ignore
+                    dataframes.append(df)
+
+            # Combine all dataframes
+            if len(dataframes) == 1:
+                self._data = dataframes[0]
+            else:
+                self._data = pd.concat(dataframes, ignore_index=True)
+
         return self._data
 
     def _parse_time_duration(self, time_str: str | float) -> timedelta:

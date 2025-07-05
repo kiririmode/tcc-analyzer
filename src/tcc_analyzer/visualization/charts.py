@@ -256,7 +256,7 @@ class PieChartVisualizer(BaseVisualizer):
         }
 
 
-class TimeSeriesVisualizer(BaseVisualizer):
+class TimeSeriesVisualizer(BaseVisualizer, ChartStyleMixin):
     """Time series line chart visualizer."""
 
     def create_chart(
@@ -301,24 +301,6 @@ class TimeSeriesVisualizer(BaseVisualizer):
             fig.autofmt_xdate()
 
         return fig, ax
-
-    def _get_line_styling(self, **kwargs: Any) -> dict[str, Any]:
-        """Get line styling parameters."""
-        return {
-            "color": kwargs.get("color", "steelblue"),
-            "linewidth": kwargs.get("linewidth", 2),
-            "linestyle": kwargs.get("linestyle", "-"),
-            "alpha": kwargs.get("alpha", 0.8),
-        }
-
-    def _get_marker_styling(self, **kwargs: Any) -> dict[str, Any]:
-        """Get marker styling parameters."""
-        return {
-            "color": kwargs.get("marker_color", "darkblue"),
-            "size": kwargs.get("marker_size", 50),
-            "alpha": kwargs.get("marker_alpha", 0.6),
-            "marker": kwargs.get("marker_style", "o"),
-        }
 
 
 class HeatmapVisualizer(BaseVisualizer):

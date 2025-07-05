@@ -30,7 +30,9 @@ def main() -> None:
 
 
 @main.command()
-@click.argument("csv_file", type=click.Path(exists=True, path_type=Path))
+@click.argument(
+    "csv_files", nargs=-1, required=True, type=click.Path(exists=True, path_type=Path)
+)
 @click.option(
     "--output-format",
     type=click.Choice(["table", "json", "csv"]),
@@ -76,7 +78,7 @@ def main() -> None:
     help="Chart output format (default: png)",
 )
 def task(
-    csv_file: Path,
+    csv_files: tuple[Path, ...],
     output_format: str,
     sort_by: str,
     reverse: bool,
@@ -87,9 +89,38 @@ def task(
     chart_format: str,
 ) -> None:
     """Analyze TaskChute Cloud task logs with project/mode/project-mode grouping."""
-    analyzer = TaskAnalyzer(csv_file)
-
     # Validate base_time format if provided
+    _validate_base_time(base_time)
+
+    # Initialize analyzer with CSV files
+    analyzer = _create_analyzer(csv_files)
+
+    # Perform analysis based on group_by parameter
+    analysis_methods = {
+        "mode": analyzer.analyze_by_mode,
+        "project-mode": analyzer.analyze_by_project_mode,
+    }
+    analysis_method = analysis_methods.get(group_by, analyzer.analyze_by_project)
+    results = analysis_method(sort_by=sort_by, reverse=reverse)
+
+    # Display results in requested format
+    display_methods = {
+        "json": analyzer.display_json,
+        "csv": analyzer.display_csv,
+    }
+    display_method = display_methods.get(output_format, analyzer.display_table)
+    display_method(results, analysis_type=group_by, base_time=base_time)
+
+    # Generate chart if requested
+    if chart:
+        primary_file = csv_files[0]
+        _generate_chart(
+            results, chart, chart_output, chart_format, group_by, primary_file
+        )
+
+
+def _validate_base_time(base_time: str | None) -> None:
+    """Validate base_time format if provided."""
     if base_time is not None:
         # Validate base_time format with strict HH:MM or HH:MM:SS pattern
         is_valid_format = bool(
@@ -105,23 +136,13 @@ def task(
             )
             raise click.Abort()
 
-    if group_by == "mode":
-        results = analyzer.analyze_by_mode(sort_by=sort_by, reverse=reverse)
-    elif group_by == "project-mode":
-        results = analyzer.analyze_by_project_mode(sort_by=sort_by, reverse=reverse)
+
+def _create_analyzer(csv_files: tuple[Path, ...]) -> TaskAnalyzer:
+    """Create TaskAnalyzer instance from CSV files."""
+    if len(csv_files) == 1:
+        return TaskAnalyzer(csv_files[0])
     else:
-        results = analyzer.analyze_by_project(sort_by=sort_by, reverse=reverse)
-
-    if output_format == "table":
-        analyzer.display_table(results, analysis_type=group_by, base_time=base_time)
-    elif output_format == "json":
-        analyzer.display_json(results, analysis_type=group_by, base_time=base_time)
-    elif output_format == "csv":
-        analyzer.display_csv(results, analysis_type=group_by, base_time=base_time)
-
-    # Generate chart if requested
-    if chart:
-        _generate_chart(results, chart, chart_output, chart_format, group_by, csv_file)
+        return TaskAnalyzer(list(csv_files))
 
 
 def _generate_chart(

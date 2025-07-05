@@ -540,6 +540,68 @@ class TestTaskAnalyzer:
         finally:
             csv_path.unlink()
 
+    def test_multiple_files_initialization(self) -> None:
+        """Test initializing TaskAnalyzer with multiple CSV files."""
+        csv_data1 = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Project A,Mode 1,01:30:00\n"
+            "Project B,Mode 2,02:00:00\n"
+        )
+        csv_data2 = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Project C,Mode 3,00:45:00\n"
+            "Project A,Mode 1,01:00:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f1:
+            f1.write(csv_data1)
+            csv_path1 = Path(f1.name)
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f2:
+            f2.write(csv_data2)
+            csv_path2 = Path(f2.name)
+
+        try:
+            # Test with list of files
+            analyzer = TaskAnalyzer([csv_path1, csv_path2])
+            results = analyzer.analyze_by_project(sort_by="project")
+
+            # Should have 3 projects (A, B, C)
+            assert len(results) == 3
+
+            # Project A should have combined time from both files
+            project_a = next((r for r in results if r["project"] == "Project A"), None)
+            assert project_a is not None
+            assert project_a["total_seconds"] == 9000  # 1:30:00 + 1:00:00 = 2:30:00
+
+        finally:
+            csv_path1.unlink()
+            csv_path2.unlink()
+
+    def test_single_file_as_path(self) -> None:
+        """Test initializing TaskAnalyzer with a single Path object."""
+        csv_data = "プロジェクト名,モード名,実績時間\nProject A,Mode 1,01:30:00\n"
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(csv_data)
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+            results = analyzer.analyze_by_project(sort_by="project")
+
+            assert len(results) == 1
+            assert results[0]["project"] == "Project A"
+
+        finally:
+            csv_path.unlink()
+
     def test_display_json_output(self, capsys: pytest.CaptureFixture[str]) -> None:
         """Test JSON output format."""
         results = [

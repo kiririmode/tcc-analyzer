@@ -51,6 +51,41 @@ class TestCLI:
         finally:
             csv_path.unlink()
 
+    def test_task_command_multiple_files(self) -> None:
+        """Test task command with multiple CSV files."""
+        csv_content1 = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Work,Focus,02:00:00\n"
+            "Study,Focus,01:00:00\n"
+        )
+        csv_content2 = (
+            "プロジェクト名,モード名,実績時間\n"
+            "Work,Review,01:30:00\n"
+            "Personal,Task,00:45:00\n"
+        )
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f1:
+            f1.write(csv_content1)
+            f1.flush()
+            csv_path1 = Path(f1.name)
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f2:
+            f2.write(csv_content2)
+            f2.flush()
+            csv_path2 = Path(f2.name)
+
+        try:
+            runner = CliRunner()
+            result = runner.invoke(main, ["task", str(csv_path1), str(csv_path2)])
+            assert result.exit_code == 0
+            assert "Analysis" in result.output
+            assert "Work" in result.output
+            assert "Study" in result.output
+            assert "Personal" in result.output
+        finally:
+            csv_path1.unlink()
+            csv_path2.unlink()
+
     def test_task_command_with_base_time(self) -> None:
         """Test task command with base time option."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
