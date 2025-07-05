@@ -17,6 +17,17 @@ repos:
         types: [python]
         require_serial: true
 
+  # Cyclomatic Complexity check with lizard
+  - repo: local
+    hooks:
+      - id: lizard
+        name: lizard (CCN check)
+        entry: uv run --frozen lizard src --CCN 10
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+
   # Pytest for running tests
   - repo: local
     hooks:

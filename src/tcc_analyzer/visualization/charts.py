@@ -136,17 +136,32 @@ class PieChartVisualizer(BaseVisualizer):
         """
         fig, ax = self.setup_figure()
 
-        # Extract data (x_key is label_key, y_key is value_key for pie charts)
-        label_key = x_key
-        value_key = y_key
-        raw_labels = DataProcessor.extract_values(data, label_key)
+        # Extract and process data
+        labels, values = self._extract_pie_data(data, x_key, y_key)
+
+        # Create pie chart with styling
+        pie_result = self._create_pie_with_styling(ax, labels, values, **kwargs)
+
+        # Customize text appearance
+        self._customize_pie_text(pie_result)
+
+        # Apply chart styling
+        self._apply_pie_chart_styling(ax, fig, **kwargs)
+
+        return fig, ax
+
+    def _extract_pie_data(
+        self, data: list[dict[str, Any]], x_key: str, y_key: str
+    ) -> tuple[tuple[Any, ...], tuple[float, ...]]:
+        """Extract and filter data for pie chart."""
+        raw_labels = DataProcessor.extract_values(data, x_key)
         labels = DataProcessor.sanitize_labels(raw_labels)
 
         # Use hours instead of seconds for better readability
-        if value_key == "total_seconds":
-            values = DataProcessor.extract_hours_values(data, value_key)
+        if y_key == "total_seconds":
+            values = DataProcessor.extract_hours_values(data, y_key)
         else:
-            values = DataProcessor.extract_numeric_values(data, value_key)
+            values = DataProcessor.extract_numeric_values(data, y_key)
 
         if not labels or not values:
             raise ValueError("Invalid data for pie chart")
@@ -160,13 +175,24 @@ class PieChartVisualizer(BaseVisualizer):
         if not filtered_data:
             raise ValueError("No positive values for pie chart")
 
-        labels, values = zip(*filtered_data, strict=False)
+        filtered_labels, filtered_values = zip(*filtered_data, strict=False)
+        return filtered_labels, filtered_values
 
-        # Create pie chart with modern styling
+    def _create_pie_with_styling(
+        self,
+        ax: Axes,
+        labels: tuple[Any, ...],
+        values: tuple[float, ...],
+        **kwargs: Any,
+    ) -> tuple[Any, ...]:
+        """Create pie chart with styling."""
         pie_style = self._get_pie_styling(**kwargs)
-        pie_result = ax.pie(  # type: ignore[misc]
+        return ax.pie(  # type: ignore[misc]
             values, labels=labels, autopct="%1.1f%%", **pie_style
         )
+
+    def _customize_pie_text(self, pie_result: tuple[Any, ...]) -> None:
+        """Customize text appearance for pie chart."""
         # Handle both 2-tuple and 3-tuple returns from pie()
         pie_tuple_length = 3
         if len(pie_result) == pie_tuple_length:
@@ -175,31 +201,29 @@ class PieChartVisualizer(BaseVisualizer):
             _, texts = pie_result
             autotexts = []
 
-        # Customize text appearance for better readability
-        for autotext in autotexts:
-            autotext.set_color("white")
-            autotext.set_fontweight("bold")
-            autotext.set_fontsize(9)
+        # Customize percentage text
+        for autotext in autotexts:  # type: ignore[misc]
+            autotext.set_color("white")  # type: ignore[misc]
+            autotext.set_fontweight("bold")  # type: ignore[misc]
+            autotext.set_fontsize(9)  # type: ignore[misc]
 
-        # Improve label appearance
-        for text in texts:
-            text.set_fontsize(10)
-            text.set_fontweight("normal")
+        # Customize label text
+        for text in texts:  # type: ignore[misc]
+            text.set_fontsize(10)  # type: ignore[misc]
+            text.set_fontweight("normal")  # type: ignore[misc]
 
+    def _apply_pie_chart_styling(self, ax: Axes, fig: Figure, **kwargs: Any) -> None:
+        """Apply styling to pie chart."""
         ax.axis("equal")  # Equal aspect ratio ensures circular pie
 
         # Remove axes spines for cleaner look
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.spines["bottom"].set_visible(False)
-        ax.spines["left"].set_visible(False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
 
-        # Optional: Create donut chart effect for modern look
+        # Optional: Create donut chart effect
         if kwargs.get("donut", False):
             centre_circle = Circle((0, 0), 0.70, fc="white")
             fig.gca().add_artist(centre_circle)
-
-        return fig, ax
 
     def _get_pie_styling(self, **kwargs: Any) -> dict[str, Any]:
         """Get pie chart styling parameters."""
