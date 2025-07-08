@@ -23,10 +23,6 @@ jobs:
             platform: windows
             artifact_name: tcc-analyzer.exe
             asset_name: tcc-analyzer-windows-x64.exe
-          - os: macos-latest
-            platform: macos
-            artifact_name: tcc-analyzer
-            asset_name: tcc-analyzer-macos-x64
 
     steps:
     - name: Checkout code
@@ -143,14 +139,13 @@ jobs:
 
         - **Linux (x64)**: \`tcc-analyzer-linux-x64.tar.gz\`
         - **Windows (x64)**: \`tcc-analyzer-windows-x64.exe.zip\`
-        - **macOS (x64)**: \`tcc-analyzer-macos-x64.tar.gz\`
 
         ## 🚀 Quick Start
 
-        ### Linux/macOS
+        ### Linux
         \`\`\`bash
         # Extract and run
-        tar -xzf tcc-analyzer-linux-x64.tar.gz  # or macos version
+        tar -xzf tcc-analyzer-linux-x64.tar.gz
         ./tcc-analyzer task your-data.csv --base-time 08:00
         \`\`\`
 
@@ -178,7 +173,6 @@ jobs:
 
         - **Linux**: glibc 2.17+ (most modern distributions)
         - **Windows**: Windows 10+ (64-bit)
-        - **macOS**: macOS 10.15+ (Catalina)
 
         No Python installation required - these are standalone executables.
 
@@ -199,10 +193,9 @@ jobs:
         files: |
           artifacts/tcc-analyzer-linux-x64/tcc-analyzer-linux-x64.tar.gz
           artifacts/tcc-analyzer-windows-x64.exe/tcc-analyzer-windows-x64.exe.zip
-          artifacts/tcc-analyzer-macos-x64/tcc-analyzer-macos-x64.tar.gz
         generate_release_notes: false  # We provide our own
 
     - name: Update latest release info
       run: |
         echo "✅ Release ${{ steps.version.outputs.VERSION }} created successfully!"
-        echo "📦 Assets uploaded: 3 platform executables"
+        echo "📦 Assets uploaded: 2 platform executables"
