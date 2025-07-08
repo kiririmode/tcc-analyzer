@@ -29,10 +29,6 @@ jobs:
             platform: windows
             artifact_name: tcc-analyzer.exe
             asset_name: tcc-analyzer-windows-x64.exe
-          - os: macos-latest
-            platform: macos
-            artifact_name: tcc-analyzer
-            asset_name: tcc-analyzer-macos-x64
 
     steps:
     - name: Checkout code
@@ -142,7 +138,6 @@ jobs:
 
         - **Linux (x64)**: \`tcc-analyzer-linux-x64.tar.gz\`
         - **Windows (x64)**: \`tcc-analyzer-windows-x64.exe.zip\`
-        - **macOS (x64)**: \`tcc-analyzer-macos-x64.tar.gz\`
 
         ## 📝 Recent Changes (Test)
 
@@ -167,7 +162,7 @@ jobs:
       run: |
         echo "✅ Test release workflow completed successfully!"
         echo "🔧 Version tested: ${{ steps.version.outputs.VERSION }}"
-        echo "📦 Platform builds: 3 (Linux, Windows, macOS)"
+        echo "📦 Platform builds: 2 (Linux, Windows)"
         echo "📝 Release notes: Generated"
         echo ""
         echo "The actual release workflow is ready to use with version tags!"
