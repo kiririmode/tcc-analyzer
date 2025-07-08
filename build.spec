@@ -39,7 +39,7 @@ a = Analysis(
         "click.core",
         "click.decorators",
         "click.exceptions",
-        # Hidden imports for matplotlib
+        # Hidden imports for matplotlib - use collect_submodules for better compatibility
         *collect_submodules('matplotlib'),
     ],
     hookspath=[],
