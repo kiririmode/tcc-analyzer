@@ -38,7 +38,7 @@ a = Analysis(
         "click.core",
         "click.decorators",
         "click.exceptions",
-        # Matplotlib dependencies
+        # Hidden imports for matplotlib
         "matplotlib",
         "matplotlib.backends",
         "matplotlib.backends.backend_tkagg",
