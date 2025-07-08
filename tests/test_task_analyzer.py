@@ -8,6 +8,7 @@ import tempfile
 from datetime import timedelta
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from src.tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
 
@@ -987,3 +988,119 @@ class TestTaskAnalyzer:
         captured = capsys.readouterr()
         assert "Project,Mode,Total Time,Task Count" in captured.out
         assert "Test Project,Test Mode,01:30:00,5" in captured.out
+
+    def test_parse_tag_names(self) -> None:
+        """Test parsing tag names from CSV string."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test empty or invalid input
+        assert analyzer._parse_tag_names("") == []
+        assert analyzer._parse_tag_names(float("nan")) == []
+        assert analyzer._parse_tag_names(123) == []
+
+        # Test single tag
+        assert analyzer._parse_tag_names("work") == ["work"]
+
+        # Test multiple tags
+        assert analyzer._parse_tag_names("work,personal") == ["work", "personal"]
+
+        # Test with spaces
+        assert analyzer._parse_tag_names("work, personal , urgent") == [
+            "work",
+            "personal",
+            "urgent",
+        ]
+
+        # Test with empty strings after split
+        assert analyzer._parse_tag_names("work,,personal") == ["work", "personal"]
+
+    def test_filter_by_tag(self) -> None:
+        """Test filtering data by tag name."""
+        # Create sample data with tag column
+        data = pd.DataFrame(
+            {
+                "タスク名": ["Task 1", "Task 2", "Task 3", "Task 4"],
+                "タグ名": ["work", "work,personal", "personal", ""],
+                "実績時間": ["00:15:00", "00:30:00", "00:45:00", "01:00:00"],
+            }
+        )
+
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test filtering by "work" tag
+        filtered = analyzer._filter_by_tag(data, "work")
+        assert len(filtered) == 2
+        assert list(filtered["タスク名"]) == ["Task 1", "Task 2"]
+
+        # Test filtering by "personal" tag
+        filtered = analyzer._filter_by_tag(data, "personal")
+        assert len(filtered) == 2
+        assert list(filtered["タスク名"]) == ["Task 2", "Task 3"]
+
+        # Test filtering by non-existent tag
+        filtered = analyzer._filter_by_tag(data, "nonexistent")
+        assert len(filtered) == 0
+
+        # Test empty filter
+        filtered = analyzer._filter_by_tag(data, "")
+        assert len(filtered) == 4  # Should return all data
+
+    def test_set_tag_filter(self) -> None:
+        """Test setting tag filter."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Initially no filter
+        assert analyzer._tag_filter is None
+
+        # Set filter
+        analyzer.set_tag_filter("work")
+        assert analyzer._tag_filter == "work"
+
+    def test_tag_filter_integration(self) -> None:
+        """Test tag filtering integration with analysis methods."""
+        # Create sample CSV data with tags
+        csv_data = (
+            "プロジェクト名,モード名,実績時間,タグ名\n"
+            "Project A,Focus Mode,00:15:00,work\n"
+            'Project A,Focus Mode,00:10:00,"work,urgent"\n'
+            "Project B,Meeting Mode,00:30:00,personal\n"
+            "Project C,Focus Mode,00:20:00,work\n"
+        )
+
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
+            f.write(csv_data)
+            csv_path = Path(f.name)
+
+        try:
+            analyzer = TaskAnalyzer(csv_path)
+
+            # Test without filter - should get all projects
+            results = analyzer.analyze_by_project()
+            assert len(results) == 3
+
+            # Test with "work" filter - should only get Project A and C
+            analyzer.set_tag_filter("work")
+            results = analyzer.analyze_by_project()
+            assert len(results) == 2
+
+            project_names = [r["project"] for r in results]
+            assert "Project A" in project_names
+            assert "Project C" in project_names
+            assert "Project B" not in project_names
+
+            # Check time aggregation for Project A (should be 00:25:00)
+            project_a = next(r for r in results if r["project"] == "Project A")
+            assert project_a["total_time"] == "00:25:00"
+            assert project_a["task_count"] == "2"
+
+            # Test with "personal" filter - should only get Project B
+            analyzer.set_tag_filter("personal")
+            results = analyzer.analyze_by_project()
+            assert len(results) == 1
+            assert results[0]["project"] == "Project B"
+            assert results[0]["total_time"] == "00:30:00"
+
+        finally:
+            csv_path.unlink()
