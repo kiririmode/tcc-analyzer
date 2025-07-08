@@ -38,6 +38,13 @@ a = Analysis(
         "click.core",
         "click.decorators",
         "click.exceptions",
+        # Matplotlib dependencies
+        "matplotlib",
+        "matplotlib.backends",
+        "matplotlib.backends.backend_tkagg",
+        "matplotlib.backends.backend_agg",
+        "matplotlib.figure",
+        "matplotlib.pyplot",
     ],
     hookspath=[],
     hooksconfig={},
@@ -45,7 +52,6 @@ a = Analysis(
     excludes=[
         # Exclude unnecessary modules to reduce size
         "tkinter",
-        "matplotlib",
         "IPython",
         "jupyter",
         "notebook",
