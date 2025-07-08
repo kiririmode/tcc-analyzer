@@ -1,6 +1,6 @@
 """Concrete chart visualizers for different chart types."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
@@ -15,45 +15,141 @@ from .base import BaseVisualizer, DataProcessor
 class ChartStyleMixin:
     """Mixin class for common chart styling methods."""
 
+    # Style defaults for different chart types
+    _STYLE_DEFAULTS: ClassVar[dict[str, dict[str, Any]]] = {
+        "common": {
+            "color": "steelblue",
+            "alpha": 0.8,
+            "edgecolor": "black",
+            "linewidth": 0.5,
+        },
+        "bar": {
+            "alpha": 0.8,
+        },
+        "histogram": {
+            "alpha": 0.7,
+        },
+        "line": {
+            "color": "steelblue",
+            "linewidth": 2,
+            "linestyle": "-",
+            "alpha": 0.8,
+        },
+        "marker": {
+            "color": "darkblue",
+            "size": 50,
+            "alpha": 0.6,
+            "marker": "o",
+        },
+    }
+
+    def _get_styling(self, style_type: str, **kwargs: Any) -> dict[str, Any]:
+        """Get styling parameters for specified chart type."""
+        if style_type == "common":
+            return self._get_common_styling(**kwargs)
+        elif style_type == "line":
+            return self._get_line_styling(**kwargs)
+        elif style_type == "marker":
+            return self._get_marker_styling(**kwargs)
+        else:
+            # For bar, histogram, and other types that use common styling
+            return self._get_common_styling_with_overrides(style_type, **kwargs)
+
     def _get_common_styling(self, **kwargs: Any) -> dict[str, Any]:
         """Get common styling parameters shared across chart types."""
-        return {
-            "color": kwargs.get("color", "steelblue"),
-            "alpha": kwargs.get("alpha", 0.8),
-            "edgecolor": kwargs.get("edgecolor", "black"),
-            "linewidth": kwargs.get("linewidth", 0.5),
-        }
+        defaults = self._STYLE_DEFAULTS["common"]
+        return {key: kwargs.get(key, default) for key, default in defaults.items()}
 
-    def _get_bar_styling(self, **kwargs: Any) -> dict[str, Any]:
-        """Get bar-specific styling parameters."""
-        return self._get_common_styling(**kwargs)
-
-    def _get_histogram_styling(self, **kwargs: Any) -> dict[str, Any]:
-        """Get histogram-specific styling parameters."""
+    def _get_common_styling_with_overrides(
+        self, style_type: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Get common styling with type-specific overrides."""
         styling = self._get_common_styling(**kwargs)
-        styling["alpha"] = kwargs.get("alpha", 0.7)  # Slightly different default
+
+        # Apply type-specific overrides
+        if style_type in self._STYLE_DEFAULTS:
+            type_defaults = self._STYLE_DEFAULTS[style_type]
+            for key, default in type_defaults.items():
+                styling[key] = kwargs.get(key, default)
+
         return styling
 
     def _get_line_styling(self, **kwargs: Any) -> dict[str, Any]:
         """Get line-specific styling parameters."""
-        return {
-            "color": kwargs.get("color", "steelblue"),
-            "linewidth": kwargs.get("linewidth", 2),
-            "linestyle": kwargs.get("linestyle", "-"),
-            "alpha": kwargs.get("alpha", 0.8),
-        }
+        defaults = self._STYLE_DEFAULTS["line"]
+        return {key: kwargs.get(key, default) for key, default in defaults.items()}
 
     def _get_marker_styling(self, **kwargs: Any) -> dict[str, Any]:
         """Get marker-specific styling parameters."""
+        defaults = self._STYLE_DEFAULTS["marker"]
+        # Handle special marker parameter mapping
         return {
-            "color": kwargs.get("marker_color", "darkblue"),
-            "size": kwargs.get("marker_size", 50),
-            "alpha": kwargs.get("marker_alpha", 0.6),
-            "marker": kwargs.get("marker_style", "o"),
+            "color": kwargs.get("marker_color", defaults["color"]),
+            "size": kwargs.get("marker_size", defaults["size"]),
+            "alpha": kwargs.get("marker_alpha", defaults["alpha"]),
+            "marker": kwargs.get("marker_style", defaults["marker"]),
         }
 
+    # Convenience methods for backward compatibility
+    def _get_bar_styling(self, **kwargs: Any) -> dict[str, Any]:
+        """Get bar-specific styling parameters."""
+        return self._get_styling("bar", **kwargs)
 
-class BarChartVisualizer(BaseVisualizer, ChartStyleMixin):
+    def _get_histogram_styling(self, **kwargs: Any) -> dict[str, Any]:
+        """Get histogram-specific styling parameters."""
+        return self._get_styling("histogram", **kwargs)
+
+
+class ChartCreationMixin:
+    """Mixin class for common chart creation patterns."""
+
+    def _prepare_chart_data(
+        self, data: list[dict[str, Any]], x_key: str, y_key: str, **kwargs: Any
+    ) -> dict[str, Any]:
+        """Prepare common chart data with validation."""
+        fig, ax = self.setup_figure()  # type: ignore[attr-defined]
+
+        result: dict[str, Any] = {"fig": fig, "ax": ax}
+
+        # Extract x-axis data (labels)
+        if x_key:
+            raw_labels = DataProcessor.extract_values(data, x_key)
+            labels = DataProcessor.sanitize_labels(raw_labels)
+            result["labels"] = labels
+
+            # For charts that use x_key as value_key (like histogram)
+            if not y_key:
+                if x_key == "total_seconds":
+                    values = DataProcessor.extract_hours_values(data, x_key)
+                else:
+                    values = DataProcessor.extract_numeric_values(data, x_key)
+                result["values"] = values
+
+        # Extract y-axis data (values)
+        if y_key:
+            if y_key == "total_seconds":
+                values = DataProcessor.extract_hours_values(data, y_key)
+            else:
+                values = DataProcessor.extract_numeric_values(data, y_key)
+            result["values"] = values
+
+        return result
+
+    def _validate_chart_data(
+        self, prepared_data: dict[str, Any], chart_type: str
+    ) -> None:
+        """Validate prepared chart data."""
+        if chart_type in ["bar", "line"] and (
+            not prepared_data.get("labels") or not prepared_data.get("values")
+        ):
+            raise ValueError(f"Invalid data for {chart_type} chart")
+        elif chart_type == "histogram" and not prepared_data.get("values"):
+            raise ValueError("No numeric values found for histogram")
+        elif chart_type == "pie" and not prepared_data.get("values"):
+            raise ValueError("Invalid data for pie chart")
+
+
+class BarChartVisualizer(BaseVisualizer, ChartStyleMixin, ChartCreationMixin):
     """Bar chart visualizer for categorical data."""
 
     def create_chart(
@@ -71,20 +167,12 @@ class BarChartVisualizer(BaseVisualizer, ChartStyleMixin):
             Tuple of (figure, axes)
 
         """
-        fig, ax = self.setup_figure()
+        # Prepare data using common pattern
+        prepared = self._prepare_chart_data(data, x_key, y_key, **kwargs)
+        self._validate_chart_data(prepared, "bar")
 
-        # Extract data
-        raw_labels = DataProcessor.extract_values(data, x_key)
-        labels = DataProcessor.sanitize_labels(raw_labels)
-
-        # Use hours instead of seconds for better readability
-        if y_key == "total_seconds":
-            values = DataProcessor.extract_hours_values(data, y_key)
-        else:
-            values = DataProcessor.extract_numeric_values(data, y_key)
-
-        if not labels or not values:
-            raise ValueError("Invalid data for bar chart")
+        fig, ax = prepared["fig"], prepared["ax"]
+        labels, values = prepared["labels"], prepared["values"]
 
         # Create bar chart
         bars = ax.bar(labels, values, **self._get_bar_styling(**kwargs))  # type: ignore[misc]
@@ -349,7 +437,7 @@ class HeatmapVisualizer(BaseVisualizer):
         return fig, ax
 
 
-class HistogramVisualizer(BaseVisualizer, ChartStyleMixin):
+class HistogramVisualizer(BaseVisualizer, ChartStyleMixin, ChartCreationMixin):
     """Histogram visualizer for distribution analysis."""
 
     def create_chart(
@@ -367,18 +455,12 @@ class HistogramVisualizer(BaseVisualizer, ChartStyleMixin):
             Tuple of (figure, axes)
 
         """
-        fig, ax = self.setup_figure()
-
-        # Extract numeric values (use hours for better readability)
         # For histograms, x_key contains the value_key
-        value_key = x_key
-        if value_key == "total_seconds":
-            values = DataProcessor.extract_hours_values(data, value_key)
-        else:
-            values = DataProcessor.extract_numeric_values(data, value_key)
+        prepared = self._prepare_chart_data(data, x_key, "", **kwargs)
+        self._validate_chart_data(prepared, "histogram")
 
-        if not values:
-            raise ValueError("No numeric values found for histogram")
+        fig, ax = prepared["fig"], prepared["ax"]
+        values = prepared["values"]
 
         # Create histogram
         ax.hist(  # type: ignore[misc]
