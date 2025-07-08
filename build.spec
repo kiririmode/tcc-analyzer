@@ -7,6 +7,7 @@ Builds a single executable file for the CLI application
 
 import sys
 from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules
 
 # Get the project root directory (where this spec file is located)
 import os
@@ -39,12 +40,7 @@ a = Analysis(
         "click.decorators",
         "click.exceptions",
         # Hidden imports for matplotlib
-        "matplotlib",
-        "matplotlib.backends",
-        "matplotlib.backends.backend_tkagg",
-        "matplotlib.backends.backend_agg",
-        "matplotlib.figure",
-        "matplotlib.pyplot",
+        *collect_submodules('matplotlib'),
     ],
     hookspath=[],
     hooksconfig={},
