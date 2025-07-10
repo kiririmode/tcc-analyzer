@@ -25,7 +25,7 @@ class TestCLI:
         result = runner.invoke(main, ["task", "--help"])
         assert result.exit_code == 0
         assert "Analyze TaskChute Cloud task logs" in result.output
-        assert "--base-time" in result.output
+        assert "--group-by" in result.output
 
     def test_task_command_basic_execution(self) -> None:
         """Test basic task command execution."""
