@@ -71,6 +71,11 @@ def main() -> None:
     default="png",
     help="Chart output format (default: png)",
 )
+@click.option(
+    "--tag-filter",
+    type=str,
+    help="Filter tasks by tag name (exact match)",
+)
 def task(
     csv_files: tuple[Path, ...],
     output_format: str,
@@ -80,10 +85,15 @@ def task(
     chart: str | None,
     chart_output: Path | None,
     chart_format: str,
+    tag_filter: str | None,
 ) -> None:
     """Analyze TaskChute Cloud task logs with project/mode/project-mode grouping."""
     # Initialize analyzer with CSV files
     analyzer = _create_analyzer(csv_files)
+
+    # Apply tag filter if specified
+    if tag_filter:
+        analyzer.set_tag_filter(tag_filter)
 
     # Perform analysis based on group_by parameter
     analysis_methods = {

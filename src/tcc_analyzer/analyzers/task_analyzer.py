@@ -27,6 +27,7 @@ class TaskAnalyzer:
             self.csv_files = csv_files
         self.console = Console()
         self._data: pd.DataFrame | None = None
+        self._tag_filter: str | None = None
 
     def _load_data(self) -> pd.DataFrame:
         """Load and parse the CSV data."""
@@ -174,6 +175,32 @@ class TaskAnalyzer:
 
         return field_data
 
+    def _parse_tag_names(self, tag_names_str: str | float) -> list[str]:
+        """Parse tag names from CSV string (comma-separated)."""
+        if pd.isna(tag_names_str) or tag_names_str == "":  # type: ignore[arg-type]
+            return []
+
+        if not isinstance(tag_names_str, str):
+            return []
+
+        # Split by comma and strip whitespace
+        tags = [tag.strip() for tag in tag_names_str.split(",")]
+        return [tag for tag in tags if tag]  # Remove empty strings
+
+    def _filter_by_tag(self, data: pd.DataFrame, tag_filter: str) -> pd.DataFrame:
+        """Filter data by tag name."""
+        if not tag_filter:
+            return data
+
+        # Create a mask for rows that contain the specified tag
+        mask = data["タグ名"].apply(lambda x: tag_filter in self._parse_tag_names(x))  # type: ignore[arg-type]
+
+        return data[mask]
+
+    def set_tag_filter(self, tag_filter: str) -> None:
+        """Set tag filter for analysis."""
+        self._tag_filter = tag_filter
+
     def _create_composite_key(
         self, field_data: dict[str, str], fields: list[str]
     ) -> str:
@@ -292,6 +319,10 @@ class TaskAnalyzer:
     ) -> list[dict[str, Any]]:
         """Analyze data by specified type with sorting options."""
         data = self._load_data()
+
+        # Apply tag filter if set
+        if self._tag_filter:
+            data = self._filter_by_tag(data, self._tag_filter)
 
         # Define field mappings for each analysis type
         field_mappings = {

@@ -116,24 +116,6 @@ class StatisticalAnalyzer:
         )
 
     @staticmethod
-    def _compute_time_distribution(values: list[float]) -> dict[str, Any]:
-        """Compute time distribution from values."""
-        # Convert to hours for better interpretation
-        hours = [v / 3600 for v in values]
-
-        return {
-            "total_hours": sum(hours),
-            "avg_hours_per_task": np.mean(hours),
-            "median_hours_per_task": np.median(hours),
-            "std_hours": np.std(hours),
-            "min_hours": np.min(hours),
-            "max_hours": np.max(hours),
-            "tasks_under_1h": sum(1 for h in hours if h < 1),
-            "tasks_1_to_4h": sum(1 for h in hours if 1 <= h < 4),  # noqa: PLR2004
-            "tasks_over_4h": sum(1 for h in hours if h >= 4),  # noqa: PLR2004
-        }
-
-    @staticmethod
     def calculate_time_distribution(
         data: list[dict[str, Any]], time_key: str
     ) -> dict[str, Any]:
@@ -150,6 +132,24 @@ class StatisticalAnalyzer:
         return StatisticalAnalyzer._apply_statistical_analysis(
             data, time_key, StatisticalAnalyzer._compute_time_distribution
         )
+
+    @staticmethod
+    def _compute_time_distribution(values: list[float]) -> dict[str, Any]:
+        """Compute time distribution from values."""
+        # Convert to hours for better interpretation
+        hours = [v / 3600 for v in values]
+
+        return {
+            "total_hours": sum(hours),
+            "avg_hours_per_task": np.mean(hours),
+            "median_hours_per_task": np.median(hours),
+            "std_hours": np.std(hours),
+            "min_hours": np.min(hours),
+            "max_hours": np.max(hours),
+            "tasks_under_1h": sum(1 for h in hours if h < 1),
+            "tasks_1_to_4h": sum(1 for h in hours if 1 <= h < 4),  # noqa: PLR2004
+            "tasks_over_4h": sum(1 for h in hours if h >= 4),  # noqa: PLR2004
+        }
 
     @staticmethod
     def calculate_category_distribution(
@@ -236,15 +236,13 @@ class StatisticalAnalyzer:
             i for i, v in enumerate(values) if v < lower_bound or v > upper_bound
         ]
 
-        outlier_info = {
-            "method": "IQR",
-            "lower_bound": lower_bound,
-            "upper_bound": upper_bound,
-            "outlier_count": len(outlier_indices),
-            "outlier_percentage": (len(outlier_indices) / len(values)) * 100,
-        }
-
-        return outlier_indices, outlier_info
+        return StatisticalAnalyzer._create_outlier_info(
+            outlier_indices,
+            values,
+            "IQR",
+            lower_bound=lower_bound,
+            upper_bound=upper_bound,
+        )
 
     @staticmethod
     def _detect_outliers_zscore(
@@ -256,12 +254,23 @@ class StatisticalAnalyzer:
 
         outlier_indices = [i for i, z in enumerate(z_scores) if z > threshold]
 
+        return StatisticalAnalyzer._create_outlier_info(
+            outlier_indices, values, "Z-Score", threshold=threshold
+        )
+
+    @staticmethod
+    def _create_outlier_info(
+        outlier_indices: list[int], values: list[float], method: str, **kwargs: Any
+    ) -> tuple[list[int], dict[str, Any]]:
+        """Create outlier information dictionary."""
         outlier_info = {
-            "method": "Z-Score",
-            "threshold": threshold,
+            "method": method,
             "outlier_count": len(outlier_indices),
             "outlier_percentage": (len(outlier_indices) / len(values)) * 100,
         }
+
+        # Add method-specific parameters
+        outlier_info.update(kwargs)
 
         return outlier_indices, outlier_info
 
