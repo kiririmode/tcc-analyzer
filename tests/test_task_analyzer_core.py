@@ -3,7 +3,6 @@
 import tempfile
 from pathlib import Path
 
-import pytest
 from src.tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
 
 
@@ -180,6 +179,25 @@ class TestTaskAnalyzerCore:
         finally:
             csv_path.unlink()
 
+    def _find_project_mode_result(
+        self, results: list[dict[str, str]], project: str, mode: str
+    ) -> dict[str, str]:
+        """Find a specific project-mode result from the analysis results."""
+        return next(r for r in results if r["project"] == project and r["mode"] == mode)
+
+    def _assert_project_mode_result(
+        self,
+        results: list[dict[str, str]],
+        project: str,
+        mode: str,
+        expected_time: str,
+        expected_count: str,
+    ) -> None:
+        """Assert that a project-mode result matches expected values."""
+        result = self._find_project_mode_result(results, project, mode)
+        assert result["total_time"] == expected_time
+        assert result["task_count"] == expected_count
+
     def test_analyze_by_project_mode(self) -> None:
         """Test project-mode analysis with sample data."""
         # Create sample CSV data
@@ -204,31 +222,19 @@ class TestTaskAnalyzerCore:
             assert len(results) == 3
 
             # Check Project A - Mode 1 (should have 00:20 total)
-            project_a_mode_1 = next(
-                r
-                for r in results
-                if r["project"] == "Project A" and r["mode"] == "Mode 1"
+            self._assert_project_mode_result(
+                results, "Project A", "Mode 1", "00:20", "2"
             )
-            assert project_a_mode_1["total_time"] == "00:20"
-            assert project_a_mode_1["task_count"] == "2"
 
             # Check Project A - Mode 2 (should have 00:10 total)
-            project_a_mode_2 = next(
-                r
-                for r in results
-                if r["project"] == "Project A" and r["mode"] == "Mode 2"
+            self._assert_project_mode_result(
+                results, "Project A", "Mode 2", "00:10", "1"
             )
-            assert project_a_mode_2["total_time"] == "00:10"
-            assert project_a_mode_2["task_count"] == "1"
 
             # Check Project B - Mode 1 (should have 00:30 total)
-            project_b_mode_1 = next(
-                r
-                for r in results
-                if r["project"] == "Project B" and r["mode"] == "Mode 1"
+            self._assert_project_mode_result(
+                results, "Project B", "Mode 1", "00:30", "1"
             )
-            assert project_b_mode_1["total_time"] == "00:30"
-            assert project_b_mode_1["task_count"] == "1"
 
         finally:
             csv_path.unlink()
@@ -288,7 +294,7 @@ class TestTaskAnalyzerCore:
             csv_path.unlink()
 
     def test_analyze_by_project_mode_sort_by_name(self) -> None:
-        """Test project-mode analysis with legacy name sorting (backward compatibility)."""
+        """Test project-mode analysis with legacy name sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
             "Z Project,Mode 1,00:15\n"
