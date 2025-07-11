@@ -11,6 +11,7 @@ from .data_loader import DataLoader
 from .result_formatter import ResultFormatter
 from .result_processor import ResultProcessor
 from .result_sorter import ResultSorter
+from .time_parser import TimeParser
 
 
 class TaskAnalyzer:
@@ -120,17 +121,14 @@ class TaskAnalyzer:
 
     def _parse_time_duration(self, time_str: str | float) -> timedelta:
         """Parse time duration for backward compatibility."""
-        from .time_parser import TimeParser
         return TimeParser.parse_time_duration(time_str)
 
     def _format_duration(self, duration: timedelta) -> str:
         """Format duration for backward compatibility."""
-        from .time_parser import TimeParser
         return TimeParser.format_duration(duration)
 
     def _calculate_percentage(self, duration: timedelta, base_time_str: str) -> float:
         """Calculate percentage for backward compatibility."""
-        from .time_parser import TimeParser
         return TimeParser.calculate_percentage(duration, base_time_str)
 
     def _parse_tag_names(self, tag_names_str: str | float) -> list[str]:
@@ -172,4 +170,3 @@ class TaskAnalyzer:
     ) -> str:
         """Format a single result row for Slack."""
         return self._result_formatter.format_slack_row(result, config, base_time)
-

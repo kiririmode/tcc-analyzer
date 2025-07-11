@@ -1,7 +1,6 @@
 """Time parsing and validation utilities for TaskChute Cloud logs."""
 
 from datetime import timedelta
-from typing import Any
 
 import pandas as pd
 
