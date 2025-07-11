@@ -69,9 +69,9 @@ class TestTaskAnalyzer:
 
         assert (
             analyzer._format_duration(timedelta(hours=1, minutes=30, seconds=45))
-            == "01:30:45"
+            == "01:30"
         )
-        assert analyzer._format_duration(timedelta(0)) == "00:00:00"
+        assert analyzer._format_duration(timedelta(0)) == "00:00"
 
     def test_calculate_percentage(self) -> None:
         """Test percentage calculation against base time."""
@@ -478,14 +478,14 @@ class TestTaskAnalyzer:
 
             assert len(results) == 2
 
-            # Check Project A (should have 00:25:00 total)
+            # Check Project A (should have 00:25 total)
             project_a = next(r for r in results if r["project"] == "Project A")
-            assert project_a["total_time"] == "00:25:00"
+            assert project_a["total_time"] == "00:25"
             assert project_a["task_count"] == "2"
 
-            # Check Project B (should have 00:30:00 total)
+            # Check Project B (should have 00:30 total)
             project_b = next(r for r in results if r["project"] == "Project B")
-            assert project_b["total_time"] == "00:30:00"
+            assert project_b["total_time"] == "00:30"
             assert project_b["task_count"] == "1"
 
         finally:
@@ -662,14 +662,14 @@ class TestTaskAnalyzer:
 
             assert len(results) == 2
 
-            # Check Focus Mode (should have 00:25:00 total)
+            # Check Focus Mode (should have 00:25 total)
             focus_mode = next(r for r in results if r["mode"] == "Focus Mode")
-            assert focus_mode["total_time"] == "00:25:00"
+            assert focus_mode["total_time"] == "00:25"
             assert focus_mode["task_count"] == "2"
 
-            # Check Meeting Mode (should have 00:30:00 total)
+            # Check Meeting Mode (should have 00:30 total)
             meeting_mode = next(r for r in results if r["mode"] == "Meeting Mode")
-            assert meeting_mode["total_time"] == "00:30:00"
+            assert meeting_mode["total_time"] == "00:30"
             assert meeting_mode["task_count"] == "1"
 
         finally:
@@ -800,31 +800,31 @@ class TestTaskAnalyzer:
 
             assert len(results) == 3
 
-            # Check Project A + Focus Mode (should have 00:25:00 total)
+            # Check Project A + Focus Mode (should have 00:25 total)
             project_a_focus = next(
                 r
                 for r in results
                 if r["project"] == "Project A" and r["mode"] == "Focus Mode"
             )
-            assert project_a_focus["total_time"] == "00:25:00"
+            assert project_a_focus["total_time"] == "00:25"
             assert project_a_focus["task_count"] == "2"
 
-            # Check Project A + Meeting Mode (should have 00:20:00 total)
+            # Check Project A + Meeting Mode (should have 00:20 total)
             project_a_meeting = next(
                 r
                 for r in results
                 if r["project"] == "Project A" and r["mode"] == "Meeting Mode"
             )
-            assert project_a_meeting["total_time"] == "00:20:00"
+            assert project_a_meeting["total_time"] == "00:20"
             assert project_a_meeting["task_count"] == "1"
 
-            # Check Project B + Focus Mode (should have 00:30:00 total)
+            # Check Project B + Focus Mode (should have 00:30 total)
             project_b_focus = next(
                 r
                 for r in results
                 if r["project"] == "Project B" and r["mode"] == "Focus Mode"
             )
-            assert project_b_focus["total_time"] == "00:30:00"
+            assert project_b_focus["total_time"] == "00:30"
             assert project_b_focus["task_count"] == "1"
 
         finally:
@@ -1090,9 +1090,9 @@ class TestTaskAnalyzer:
             assert "Project C" in project_names
             assert "Project B" not in project_names
 
-            # Check time aggregation for Project A (should be 00:25:00)
+            # Check time aggregation for Project A (should be 00:25)
             project_a = next(r for r in results if r["project"] == "Project A")
-            assert project_a["total_time"] == "00:25:00"
+            assert project_a["total_time"] == "00:25"
             assert project_a["task_count"] == "2"
 
             # Test with "personal" filter - should only get Project B
@@ -1100,7 +1100,7 @@ class TestTaskAnalyzer:
             results = analyzer.analyze_by_project()
             assert len(results) == 1
             assert results[0]["project"] == "Project B"
-            assert results[0]["total_time"] == "00:30:00"
+            assert results[0]["total_time"] == "00:30"
 
         finally:
             csv_path.unlink()

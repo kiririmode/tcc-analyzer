@@ -141,7 +141,7 @@ class TestCLI:
             )
             assert result.exit_code == 0
             assert "Project,Total Time,Task Count" in result.output
-            assert "Work,02:00:00,1" in result.output
+            assert "Work,02:00,1" in result.output
         finally:
             csv_path.unlink()
 
@@ -240,7 +240,7 @@ class TestCLI:
             result = runner.invoke(main, ["task", str(csv_path), "--base-time", "8:0"])
             assert result.exit_code != 0
             assert "Invalid base time format" in result.output
-            assert "Use HH:MM or HH:MM:SS format" in result.output
+            assert "Use HH:MM format" in result.output
 
             # Test another invalid format
             result = runner.invoke(main, ["task", str(csv_path), "--base-time", "1:30"])

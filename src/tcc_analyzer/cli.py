@@ -141,7 +141,7 @@ def _validate_base_time(base_time: str | None) -> None:
         if not is_valid_format:
             click.echo(
                 f"Error: Invalid base time format '{base_time}'. "
-                f"Use HH:MM or HH:MM:SS format (e.g., '08:00' or '08:00:00').",
+                f"Use HH:MM format (e.g., '08:00').",
                 err=True,
             )
             raise click.Abort()

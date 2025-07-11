@@ -106,12 +106,11 @@ class TaskAnalyzer:
         return minutes < MAX_MINUTES_SECONDS and seconds < MAX_MINUTES_SECONDS
 
     def _format_duration(self, duration: timedelta) -> str:
-        """Format timedelta as HH:MM:SS string."""
+        """Format timedelta as HH:MM string."""
         total_seconds = int(duration.total_seconds())
         hours = total_seconds // 3600
         minutes = (total_seconds % 3600) // 60
-        seconds = total_seconds % 60
-        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        return f"{hours:02d}:{minutes:02d}"
 
     def _calculate_percentage(self, duration: timedelta, base_time_str: str) -> float:
         """Calculate percentage of duration against base time."""
