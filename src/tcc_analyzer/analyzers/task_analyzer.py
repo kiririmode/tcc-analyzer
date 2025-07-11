@@ -488,7 +488,7 @@ class TaskAnalyzer:
         # Prepare row data
         rows: list[list[str]] = []
         for result in results:
-            row_data = []
+            row_data: list[str] = []
             for field in config["fields"]:
                 if field == "percentage" and field not in result:
                     # Skip percentage field if not present in result
