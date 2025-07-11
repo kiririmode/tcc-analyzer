@@ -338,6 +338,33 @@ class TaskAnalyzer:
 
         return result
 
+    def _get_project_sort_key(
+        self, analysis_type: str
+    ) -> Callable[[dict[str, Any]], Any]:
+        """Get sort key for project-based sorting."""
+        if analysis_type == "project":
+            return lambda x: str(x["project"])
+        # project-mode
+        return lambda x: (str(x["project"]), str(x["mode"]))
+
+    def _get_mode_sort_key(self, analysis_type: str) -> Callable[[dict[str, Any]], Any]:
+        """Get sort key for mode-based sorting."""
+        if analysis_type == "mode":
+            return lambda x: str(x["mode"])
+        # project-mode
+        return lambda x: (str(x["mode"]), str(x["project"]))
+
+    def _get_default_sort_key(
+        self, analysis_type: str
+    ) -> Callable[[dict[str, Any]], Any]:
+        """Get default sort key based on analysis type."""
+        if analysis_type == "project":
+            return lambda x: str(x["project"])
+        if analysis_type == "mode":
+            return lambda x: str(x["mode"])
+        # project-mode
+        return lambda x: (str(x["project"]), str(x["mode"]))
+
     def _get_sort_key(
         self, sort_by: str, analysis_type: str
     ) -> Callable[[dict[str, Any]], Any]:
@@ -346,24 +373,13 @@ class TaskAnalyzer:
             return lambda x: int(x["total_seconds"])
 
         if sort_by == "project" and analysis_type in ["project", "project-mode"]:
-            if analysis_type == "project":
-                return lambda x: str(x["project"])
-            else:  # project-mode
-                return lambda x: (str(x["project"]), str(x["mode"]))
+            return self._get_project_sort_key(analysis_type)
 
         if sort_by == "mode" and analysis_type in ["mode", "project-mode"]:
-            if analysis_type == "mode":
-                return lambda x: str(x["mode"])
-            else:  # project-mode
-                return lambda x: (str(x["mode"]), str(x["project"]))
+            return self._get_mode_sort_key(analysis_type)
 
-        # Default sorting based on analysis type
-        if analysis_type == "project":
-            return lambda x: str(x["project"])
-        if analysis_type == "mode":
-            return lambda x: str(x["mode"])
-        # project-mode
-        return lambda x: (str(x["project"]), str(x["mode"]))
+        # Default sorting
+        return self._get_default_sort_key(analysis_type)
 
     def _sort_results(
         self,
