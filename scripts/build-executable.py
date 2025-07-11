@@ -70,12 +70,14 @@ def _run_pyinstaller(spec_file: Path, project_root: Path) -> None:
 def _test_executable(executable_path: Path) -> bool:
     """Test the built executable for basic functionality."""
     print("Testing executable...")
+    # Increase timeout for Windows executables which may take longer to start
+    timeout_seconds = 30
     test_result = subprocess.run(  # noqa: S603
         [str(executable_path), "--help"],
         check=False,
         capture_output=True,
         text=True,
-        timeout=10,
+        timeout=timeout_seconds,
     )
     return test_result.returncode == 0
 
