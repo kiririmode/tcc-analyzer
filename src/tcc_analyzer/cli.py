@@ -35,7 +35,7 @@ def main() -> None:
 )
 @click.option(
     "--output-format",
-    type=click.Choice(["table", "json", "csv"]),
+    type=click.Choice(["table", "json", "csv", "slack"]),
     default="table",
     help="Output format for the analysis results",
 )
@@ -120,6 +120,7 @@ def task(
     display_methods = {
         "json": analyzer.display_json,
         "csv": analyzer.display_csv,
+        "slack": analyzer.display_slack,
     }
     display_method = display_methods.get(output_format, analyzer.display_table)
     display_method(results, analysis_type=group_by, base_time=base_time)
