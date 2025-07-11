@@ -337,6 +337,33 @@ class TaskAnalyzer:
 
         return result
 
+    def _get_project_sort_key(
+        self, analysis_type: str
+    ) -> Callable[[dict[str, Any]], Any]:
+        """Get sort key for project-based sorting."""
+        if analysis_type == "project":
+            return lambda x: str(x["project"])
+        # project-mode
+        return lambda x: (str(x["project"]), str(x["mode"]))
+
+    def _get_mode_sort_key(self, analysis_type: str) -> Callable[[dict[str, Any]], Any]:
+        """Get sort key for mode-based sorting."""
+        if analysis_type == "mode":
+            return lambda x: str(x["mode"])
+        # project-mode
+        return lambda x: (str(x["mode"]), str(x["project"]))
+
+    def _get_default_sort_key(
+        self, analysis_type: str
+    ) -> Callable[[dict[str, Any]], Any]:
+        """Get default sort key based on analysis type."""
+        if analysis_type == "project":
+            return lambda x: str(x["project"])
+        if analysis_type == "mode":
+            return lambda x: str(x["mode"])
+        # project-mode
+        return lambda x: (str(x["project"]), str(x["mode"]))
+
     def _get_sort_key(
         self, sort_by: str, analysis_type: str
     ) -> Callable[[dict[str, Any]], Any]:
@@ -344,35 +371,14 @@ class TaskAnalyzer:
         if sort_by == "time":
             return lambda x: int(x["total_seconds"])
 
-        return self._get_default_sort_key(sort_by, analysis_type)
+        if sort_by == "project" and analysis_type in ["project", "project-mode"]:
+            return self._get_project_sort_key(analysis_type)
 
-    def _get_default_sort_key(
-        self, sort_by: str, analysis_type: str
-    ) -> Callable[[dict[str, Any]], Any]:
-        """Get default sort key based on sort_by and analysis_type."""
-        # Define sort key configurations
-        sort_configs: dict[tuple[str, str], Callable[[dict[str, Any]], Any]] = {
-            ("project", "project"): lambda x: str(x["project"]),
-            ("project", "project-mode"): lambda x: (str(x["project"]), str(x["mode"])),
-            ("mode", "mode"): lambda x: str(x["mode"]),
-            ("mode", "project-mode"): lambda x: (str(x["mode"]), str(x["project"])),
-        }
+        if sort_by == "mode" and analysis_type in ["mode", "project-mode"]:
+            return self._get_mode_sort_key(analysis_type)
 
-        # Try to find specific configuration
-        key = (sort_by, analysis_type)
-        if key in sort_configs:
-            return sort_configs[key]
-
-        # Fall back to default based on analysis type
-        default_configs: dict[str, Callable[[dict[str, Any]], Any]] = {
-            "project": lambda x: str(x["project"]),
-            "mode": lambda x: str(x["mode"]),
-        }
-
-        def default_func(x: dict[str, Any]) -> tuple[str, str]:
-            return (str(x["project"]), str(x["mode"]))
-
-        return default_configs.get(analysis_type, default_func)
+        # Default sorting
+        return self._get_default_sort_key(analysis_type)
 
     def _sort_results(
         self,
