@@ -140,8 +140,9 @@ class TestCLI:
                 main, ["task", str(csv_path), "--output-format", "csv"]
             )
             assert result.exit_code == 0
-            assert "Project,Total Time,Task Count" in result.output
-            assert "Work,02:00,1" in result.output
+            assert "Project,Total Time,Task Count,Percentage" in result.output
+            assert "Work,02:00,1,100.0%" in result.output
+            assert "Total,02:00,1,100.0%" in result.output
         finally:
             csv_path.unlink()
 

@@ -7,6 +7,7 @@ import sys
 import tempfile
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -24,7 +25,7 @@ class TestTaskAnalyzer:
         assert analyzer._parse_time_duration("01:30:45") == timedelta(
             hours=1, minutes=30, seconds=45
         )
-        assert analyzer._parse_time_duration("00:00:00") == timedelta(0)
+        assert analyzer._parse_time_duration("00:00") == timedelta(0)
         assert analyzer._parse_time_duration("12:59:59") == timedelta(
             hours=12, minutes=59, seconds=59
         )
@@ -79,7 +80,7 @@ class TestTaskAnalyzer:
 
         # Test basic percentage calculation
         duration = timedelta(hours=1)  # 1 hour
-        base_time = "08:00:00"  # 8 hours
+        base_time = "08:00"  # 8 hours
         percentage = analyzer._calculate_percentage(duration, base_time)
         assert percentage == 12.5  # 1/8 * 100 = 12.5%
 
@@ -89,8 +90,150 @@ class TestTaskAnalyzer:
         assert percentage == 100.0
 
         # Test zero base time (edge case)
-        percentage = analyzer._calculate_percentage(duration, "00:00:00")
+        percentage = analyzer._calculate_percentage(duration, "00:00")
         assert percentage == 0.0
+
+    def test_add_total_row_and_percentages(self) -> None:
+        """Test adding total row and percentage columns to results."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test with project analysis results
+        results = [
+            {
+                "project": "Project A",
+                "total_time": "01:30",
+                "total_seconds": 5400,
+                "task_count": "2",
+            },
+            {
+                "project": "Project B",
+                "total_time": "00:30",
+                "total_seconds": 1800,
+                "task_count": "1",
+            },
+        ]
+
+        updated_results = analyzer.add_total_row_and_percentages(results, "project")
+
+        # Should have 3 rows now (2 original + 1 total)
+        assert len(updated_results) == 3
+
+        # Check that percentages were added to original rows
+        assert updated_results[0]["percentage"] == "75.0%"  # 5400/7200 * 100
+        assert updated_results[1]["percentage"] == "25.0%"  # 1800/7200 * 100
+
+        # Check total row
+        total_row = updated_results[2]
+        assert total_row["project"] == "Total"
+        assert (
+            total_row["total_time"] == "02:00"
+        )  # 5400 + 1800 = 7200 seconds = 2 hours
+        assert total_row["total_seconds"] == 7200
+        assert total_row["task_count"] == "3"  # 2 + 1
+        assert total_row["percentage"] == "100.0%"
+
+    def test_add_total_row_and_percentages_mode(self) -> None:
+        """Test adding total row and percentages for mode analysis."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results = [
+            {
+                "mode": "Focus",
+                "total_time": "02:00",
+                "total_seconds": 7200,
+                "task_count": "3",
+            },
+        ]
+
+        updated_results = analyzer.add_total_row_and_percentages(results, "mode")
+
+        assert len(updated_results) == 2
+        assert updated_results[0]["percentage"] == "100.0%"
+
+        # Check total row
+        total_row = updated_results[1]
+        assert total_row["mode"] == "Total"
+        assert total_row["total_time"] == "02:00"
+        assert total_row["percentage"] == "100.0%"
+
+    def test_add_total_row_and_percentages_project_mode(self) -> None:
+        """Test adding total row and percentages for project-mode analysis."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results = [
+            {
+                "project": "Project A",
+                "mode": "Focus",
+                "total_time": "01:00",
+                "total_seconds": 3600,
+                "task_count": "2",
+                "project_mode": "Project A | Focus",
+            },
+            {
+                "project": "Project A",
+                "mode": "Meeting",
+                "total_time": "00:30",
+                "total_seconds": 1800,
+                "task_count": "1",
+                "project_mode": "Project A | Meeting",
+            },
+        ]
+
+        updated_results = analyzer.add_total_row_and_percentages(
+            results, "project-mode"
+        )
+
+        assert len(updated_results) == 3
+        assert updated_results[0]["percentage"] == "66.7%"  # 3600/5400 * 100 ≈ 66.7%
+        assert updated_results[1]["percentage"] == "33.3%"  # 1800/5400 * 100 ≈ 33.3%
+
+        # Check total row
+        total_row = updated_results[2]
+        assert total_row["project"] == "Total"
+        assert total_row["mode"] == "-"
+        assert total_row["project_mode"] == "Total | -"
+        assert (
+            total_row["total_time"] == "01:30"
+        )  # 3600 + 1800 = 5400 seconds = 1.5 hours
+        assert total_row["percentage"] == "100.0%"
+
+    def test_add_total_row_and_percentages_empty_results(self) -> None:
+        """Test adding total row with empty results."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results: list[dict[str, Any]] = []
+        updated_results = analyzer.add_total_row_and_percentages(results, "project")
+
+        # Should return empty list unchanged
+        assert len(updated_results) == 0
+
+    def test_create_total_row(self) -> None:
+        """Test creating total row for different analysis types."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test project analysis total row
+        total_row = analyzer._create_total_row(
+            timedelta(hours=2, minutes=30), 5, "project"
+        )
+
+        assert total_row["project"] == "Total"
+        assert total_row["total_time"] == "02:30"
+        assert total_row["total_seconds"] == 9000
+        assert total_row["task_count"] == "5"
+        assert total_row["percentage"] == "100.0%"
+
+        # Test mode analysis total row
+        total_row = analyzer._create_total_row(timedelta(hours=1), 3, "mode")
+
+        assert total_row["mode"] == "Total"
+        assert total_row["total_time"] == "01:00"
+
+        # Test project-mode analysis total row
+        total_row = analyzer._create_total_row(timedelta(minutes=45), 2, "project-mode")
+
+        assert total_row["project"] == "Total"
+        assert total_row["mode"] == "-"
+        assert total_row["project_mode"] == "Total | -"
 
     def test_add_percentage_to_results(self) -> None:
         """Test adding percentage column to results."""
@@ -99,19 +242,19 @@ class TestTaskAnalyzer:
         results = [
             {
                 "project": "Work",
-                "total_time": "04:00:00",
+                "total_time": "04:00",
                 "total_seconds": 14400,  # 4 hours in seconds
                 "task_count": "5",
             },
             {
                 "project": "Study",
-                "total_time": "02:00:00",
+                "total_time": "02:00",
                 "total_seconds": 7200,  # 2 hours in seconds
                 "task_count": "3",
             },
         ]
 
-        updated_results = analyzer._add_percentage_to_results(results, "08:00:00")
+        updated_results = analyzer._add_percentage_to_results(results, "08:00")
 
         assert len(updated_results) == 2
         assert updated_results[0]["percentage"] == "50.0%"  # 4/8 * 100
@@ -121,9 +264,7 @@ class TestTaskAnalyzer:
         """Test table display includes base time in title."""
         # Create sample CSV data
         csv_content = (
-            "プロジェクト名,モード名,実績時間\n"
-            "Work,Focus,02:00:00\n"
-            "Study,Focus,01:00:00\n"
+            "プロジェクト名,モード名,実績時間\nWork,Focus,02:00\nStudy,Focus,01:00\n"
         )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
@@ -137,15 +278,13 @@ class TestTaskAnalyzer:
 
             # Add percentage to results for base time test
             results_with_percentage = analyzer._add_percentage_to_results(
-                results, "08:00:00"
+                results, "08:00"
             )
 
             # Test that table creation includes base time in title
-            table = analyzer._create_table(
-                results_with_percentage, "project", "08:00:00"
-            )
+            table = analyzer._create_table(results_with_percentage, "project", "08:00")
             assert table.title is not None
-            assert "Base: 08:00:00" in table.title
+            assert "Base: 08:00" in table.title
 
             # Test without base time
             table_no_base = analyzer._create_table(results, "project", None)
@@ -159,7 +298,7 @@ class TestTaskAnalyzer:
         """Test JSON output includes base time metadata."""
 
         # Create sample CSV data
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00\n"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv_content)
@@ -174,7 +313,7 @@ class TestTaskAnalyzer:
             captured_output = io.StringIO()
             sys.stdout = captured_output
 
-            analyzer.display_json(results, "project", "08:00:00")
+            analyzer.display_json(results, "project", "08:00")
 
             # Restore stdout
             sys.stdout = sys.__stdout__
@@ -184,7 +323,7 @@ class TestTaskAnalyzer:
 
             # Check that base_time and analysis_type are included
             assert "base_time" in output
-            assert output["base_time"] == "08:00:00"
+            assert output["base_time"] == "08:00"
             assert "analysis_type" in output
             assert "results" in output
 
@@ -195,7 +334,7 @@ class TestTaskAnalyzer:
         """Test CSV output includes base time comment."""
 
         # Create sample CSV data
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00\n"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv_content)
@@ -210,7 +349,7 @@ class TestTaskAnalyzer:
             captured_output = io.StringIO()
             sys.stdout = captured_output
 
-            analyzer.display_csv(results, "project", "08:00:00")
+            analyzer.display_csv(results, "project", "08:00")
 
             # Restore stdout
             sys.stdout = sys.__stdout__
@@ -218,7 +357,7 @@ class TestTaskAnalyzer:
             output_lines = captured_output.getvalue().strip().split("\n")
 
             # Check that first line contains base time comment
-            assert output_lines[0] == "# Base Time: 08:00:00"
+            assert output_lines[0] == "# Base Time: 08:00"
             assert "Percentage" in output_lines[1]  # Header line
 
         finally:
@@ -227,7 +366,7 @@ class TestTaskAnalyzer:
     def test_encoding_fallback_to_shift_jis(self) -> None:
         """Test encoding fallback to Shift-JIS when UTF-8 fails."""
         # Create a CSV file with Shift-JIS encoding
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00\n"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, encoding="shift-jis"
@@ -249,7 +388,7 @@ class TestTaskAnalyzer:
         """Test date parsing when datetime columns exist."""
         csv_content = (
             "プロジェクト名,モード名,実績時間,開始日時,終了日時\n"
-            "Work,Focus,01:00:00,2023-01-01 09:00:00,2023-01-01 10:00:00\n"
+            "Work,Focus,01:00,2023-01-01 09:00,2023-01-01 10:00\n"
         )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
@@ -280,8 +419,8 @@ class TestTaskAnalyzer:
         """Test mode analysis with empty or invalid data."""
         csv_content = (
             "プロジェクト名,モード名,実績時間\n"
-            ",Focus,01:00:00\n"  # Empty project name
-            "Work,,01:00:00\n"  # Empty mode name
+            ",Focus,01:00\n"  # Empty project name
+            "Work,,01:00\n"  # Empty mode name
             "Work,Focus,\n"  # Empty time
         )
 
@@ -303,8 +442,8 @@ class TestTaskAnalyzer:
         """Test project-mode analysis with invalid data."""
         csv_content = (
             "プロジェクト名,モード名,実績時間\n"
-            ",Focus,01:00:00\n"  # Empty project name
-            "Work,,01:00:00\n"  # Empty mode name
+            ",Focus,01:00\n"  # Empty project name
+            "Work,,01:00\n"  # Empty mode name
             "Work,Focus,invalid\n"  # Invalid time format
         )
 
@@ -325,7 +464,7 @@ class TestTaskAnalyzer:
 
     def test_display_table_without_base_time(self) -> None:
         """Test table display without base time."""
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00\n"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv_content)
@@ -354,7 +493,7 @@ class TestTaskAnalyzer:
 
     def test_display_json_without_base_time(self) -> None:
         """Test JSON display without base time."""
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00\n"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv_content)
@@ -388,7 +527,7 @@ class TestTaskAnalyzer:
 
     def test_display_csv_without_base_time(self) -> None:
         """Test CSV display without base time."""
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00:00\n"
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,01:00\n"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
             f.write(csv_content)
@@ -420,9 +559,7 @@ class TestTaskAnalyzer:
     def test_base_time_without_seconds(self) -> None:
         """Test base time functionality with HH:MM format (no seconds)."""
         csv_content = (
-            "プロジェクト名,モード名,実績時間\n"
-            "Work,Focus,02:00:00\n"
-            "Study,Focus,01:30:00\n"
+            "プロジェクト名,モード名,実績時間\nWork,Focus,02:00\nStudy,Focus,01:30\n"
         )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
@@ -461,9 +598,9 @@ class TestTaskAnalyzer:
         # Create sample CSV data
         csv_data = (
             "プロジェクト名,モード名,実績時間,開始日時,終了日時\n"
-            "Project A,Mode 1,00:15:00,2025-07-01 09:00:00,2025-07-01 09:15:00\n"
-            "Project A,Mode 1,00:10:00,2025-07-01 09:15:00,2025-07-01 09:25:00\n"
-            "Project B,Mode 2,00:30:00,2025-07-01 10:00:00,2025-07-01 10:30:00\n"
+            "Project A,Mode 1,00:15,2025-07-01 09:00,2025-07-01 09:15\n"
+            "Project A,Mode 1,00:10,2025-07-01 09:15,2025-07-01 09:25\n"
+            "Project B,Mode 2,00:30,2025-07-01 10:00,2025-07-01 10:30\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -495,8 +632,8 @@ class TestTaskAnalyzer:
         """Test project analysis with project name sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Z Project,Mode 1,00:15:00\n"
-            "A Project,Mode 2,00:10:00\n"
+            "Z Project,Mode 1,00:15\n"
+            "A Project,Mode 2,00:10\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -520,8 +657,8 @@ class TestTaskAnalyzer:
         """Test project analysis with legacy name sorting (backward compatibility)."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Z Project,Mode 1,00:15:00\n"
-            "A Project,Mode 2,00:10:00\n"
+            "Z Project,Mode 1,00:15\n"
+            "A Project,Mode 2,00:10\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -545,13 +682,13 @@ class TestTaskAnalyzer:
         """Test initializing TaskAnalyzer with multiple CSV files."""
         csv_data1 = (
             "プロジェクト名,モード名,実績時間\n"
-            "Project A,Mode 1,01:30:00\n"
-            "Project B,Mode 2,02:00:00\n"
+            "Project A,Mode 1,01:30\n"
+            "Project B,Mode 2,02:00\n"
         )
         csv_data2 = (
             "プロジェクト名,モード名,実績時間\n"
-            "Project C,Mode 3,00:45:00\n"
-            "Project A,Mode 1,01:00:00\n"
+            "Project C,Mode 3,00:45\n"
+            "Project A,Mode 1,01:00\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -585,7 +722,7 @@ class TestTaskAnalyzer:
 
     def test_single_file_as_path(self) -> None:
         """Test initializing TaskAnalyzer with a single Path object."""
-        csv_data = "プロジェクト名,モード名,実績時間\nProject A,Mode 1,01:30:00\n"
+        csv_data = "プロジェクト名,モード名,実績時間\nProject A,Mode 1,01:30\n"
 
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".csv", delete=False, encoding="utf-8"
@@ -608,7 +745,7 @@ class TestTaskAnalyzer:
         results = [
             {
                 "project": "Test Project",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -619,7 +756,7 @@ class TestTaskAnalyzer:
 
         captured = capsys.readouterr()
         assert "Test Project" in captured.out
-        assert "01:30:00" in captured.out
+        assert "01:30" in captured.out
         assert "5" in captured.out
 
     def test_display_csv_output(self, capsys: pytest.CaptureFixture[str]) -> None:
@@ -627,7 +764,7 @@ class TestTaskAnalyzer:
         results = [
             {
                 "project": "Test Project",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -638,16 +775,16 @@ class TestTaskAnalyzer:
 
         captured = capsys.readouterr()
         assert "Project,Total Time,Task Count" in captured.out
-        assert "Test Project,01:30:00,5" in captured.out
+        assert "Test Project,01:30,5" in captured.out
 
     def test_analyze_by_mode(self) -> None:
         """Test mode analysis with sample data."""
         # Create sample CSV data
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Project A,Focus Mode,00:15:00\n"
-            "Project A,Focus Mode,00:10:00\n"
-            "Project B,Meeting Mode,00:30:00\n"
+            "Project A,Focus Mode,00:15\n"
+            "Project A,Focus Mode,00:10\n"
+            "Project B,Meeting Mode,00:30\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -679,8 +816,8 @@ class TestTaskAnalyzer:
         """Test mode analysis with mode name sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Project A,Z Mode,00:15:00\n"
-            "Project B,A Mode,00:10:00\n"
+            "Project A,Z Mode,00:15\n"
+            "Project B,A Mode,00:10\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -704,8 +841,8 @@ class TestTaskAnalyzer:
         """Test mode analysis with name sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Project A,Z Mode,00:15:00\n"
-            "Project B,A Mode,00:10:00\n"
+            "Project A,Z Mode,00:15\n"
+            "Project B,A Mode,00:10\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -730,7 +867,7 @@ class TestTaskAnalyzer:
         results = [
             {
                 "mode": "Test Mode",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -745,7 +882,7 @@ class TestTaskAnalyzer:
         results = [
             {
                 "mode": "Test Mode",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -756,7 +893,7 @@ class TestTaskAnalyzer:
 
         captured = capsys.readouterr()
         assert "Test Mode" in captured.out
-        assert "01:30:00" in captured.out
+        assert "01:30" in captured.out
         assert "5" in captured.out
 
     def test_display_csv_mode_output(self, capsys: pytest.CaptureFixture[str]) -> None:
@@ -764,7 +901,7 @@ class TestTaskAnalyzer:
         results = [
             {
                 "mode": "Test Mode",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -775,17 +912,17 @@ class TestTaskAnalyzer:
 
         captured = capsys.readouterr()
         assert "Mode,Total Time,Task Count" in captured.out
-        assert "Test Mode,01:30:00,5" in captured.out
+        assert "Test Mode,01:30,5" in captured.out
 
     def test_analyze_by_project_mode(self) -> None:
         """Test project-mode analysis with sample data."""
         # Create sample CSV data
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Project A,Focus Mode,00:15:00\n"
-            "Project A,Focus Mode,00:10:00\n"
-            "Project A,Meeting Mode,00:20:00\n"
-            "Project B,Focus Mode,00:30:00\n"
+            "Project A,Focus Mode,00:15\n"
+            "Project A,Focus Mode,00:10\n"
+            "Project A,Meeting Mode,00:20\n"
+            "Project B,Focus Mode,00:30\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -834,9 +971,9 @@ class TestTaskAnalyzer:
         """Test project-mode analysis with project sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Z Project,B Mode,00:15:00\n"
-            "Z Project,A Mode,00:10:00\n"
-            "A Project,C Mode,00:30:00\n"
+            "Z Project,B Mode,00:15\n"
+            "Z Project,A Mode,00:10\n"
+            "A Project,C Mode,00:30\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -867,9 +1004,9 @@ class TestTaskAnalyzer:
         """Test project-mode analysis with mode sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Z Project,B Mode,00:15:00\n"
-            "Z Project,A Mode,00:10:00\n"
-            "A Project,C Mode,00:30:00\n"
+            "Z Project,B Mode,00:15\n"
+            "Z Project,A Mode,00:10\n"
+            "A Project,C Mode,00:30\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -900,9 +1037,9 @@ class TestTaskAnalyzer:
         """Test project-mode analysis with name sorting."""
         csv_data = (
             "プロジェクト名,モード名,実績時間\n"
-            "Z Project,B Mode,00:15:00\n"
-            "Z Project,A Mode,00:10:00\n"
-            "A Project,C Mode,00:30:00\n"
+            "Z Project,B Mode,00:15\n"
+            "Z Project,A Mode,00:10\n"
+            "A Project,C Mode,00:30\n"
         )
 
         with tempfile.NamedTemporaryFile(
@@ -935,7 +1072,7 @@ class TestTaskAnalyzer:
             {
                 "project": "Test Project",
                 "mode": "Test Mode",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -953,7 +1090,7 @@ class TestTaskAnalyzer:
             {
                 "project": "Test Project",
                 "mode": "Test Mode",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -965,7 +1102,7 @@ class TestTaskAnalyzer:
         captured = capsys.readouterr()
         assert "Test Project" in captured.out
         assert "Test Mode" in captured.out
-        assert "01:30:00" in captured.out
+        assert "01:30" in captured.out
         assert "5" in captured.out
 
     def test_display_csv_project_mode_output(
@@ -976,7 +1113,7 @@ class TestTaskAnalyzer:
             {
                 "project": "Test Project",
                 "mode": "Test Mode",
-                "total_time": "01:30:00",
+                "total_time": "01:30",
                 "task_count": "5",
                 "total_seconds": 5400,
             }
@@ -987,7 +1124,7 @@ class TestTaskAnalyzer:
 
         captured = capsys.readouterr()
         assert "Project,Mode,Total Time,Task Count" in captured.out
-        assert "Test Project,Test Mode,01:30:00,5" in captured.out
+        assert "Test Project,Test Mode,01:30,5" in captured.out
 
     def test_parse_tag_names(self) -> None:
         """Test parsing tag names from CSV string."""
@@ -1021,7 +1158,7 @@ class TestTaskAnalyzer:
             {
                 "タスク名": ["Task 1", "Task 2", "Task 3", "Task 4"],
                 "タグ名": ["work", "work,personal", "personal", ""],
-                "実績時間": ["00:15:00", "00:30:00", "00:45:00", "01:00:00"],
+                "実績時間": ["00:15", "00:30", "00:45", "01:00"],
             }
         )
 
@@ -1061,10 +1198,10 @@ class TestTaskAnalyzer:
         # Create sample CSV data with tags
         csv_data = (
             "プロジェクト名,モード名,実績時間,タグ名\n"
-            "Project A,Focus Mode,00:15:00,work\n"
-            'Project A,Focus Mode,00:10:00,"work,urgent"\n'
-            "Project B,Meeting Mode,00:30:00,personal\n"
-            "Project C,Focus Mode,00:20:00,work\n"
+            "Project A,Focus Mode,00:15,work\n"
+            'Project A,Focus Mode,00:10,"work,urgent"\n'
+            "Project B,Meeting Mode,00:30,personal\n"
+            "Project C,Focus Mode,00:20,work\n"
         )
 
         with tempfile.NamedTemporaryFile(
