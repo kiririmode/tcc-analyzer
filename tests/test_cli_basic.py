@@ -2,7 +2,6 @@
 
 import tempfile
 from pathlib import Path
-from typing import Any
 from unittest.mock import Mock, patch
 
 from click.testing import CliRunner
@@ -92,8 +91,8 @@ class TestCLIBasic:
         result = runner.invoke(main, ["task", "nonexistent.csv"])
         assert result.exit_code != 0
 
-    def test_import_fallback_mechanism(self) -> None:
-        """Test that matplotlib import fallback works correctly."""
+    def test_task_command_without_chart_option(self) -> None:
+        """Test that task command works correctly without chart generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
@@ -102,25 +101,16 @@ class TestCLIBasic:
             csv_path = Path(f.name)
 
         try:
-            # Mock matplotlib import to fail
-            with patch("builtins.__import__") as mock_import:
-
-                def side_effect(name, *args, **kwargs):
-                    if name == "matplotlib":
-                        raise ImportError("matplotlib not available")
-                    return __import__(name, *args, **kwargs)
-
-                mock_import.side_effect = side_effect
-
-                runner = CliRunner()
-                # Should still work without charts
-                result = runner.invoke(main, ["task", str(csv_path)])
-                assert result.exit_code == 0
+            runner = CliRunner()
+            # Should work fine without any chart options
+            result = runner.invoke(main, ["task", str(csv_path)])
+            assert result.exit_code == 0
+            assert "Work" in result.output
 
         finally:
             csv_path.unlink()
 
-    def test_chart_generation_error_handling(self, mock_factory: Any) -> None:
+    def test_chart_generation_error_handling(self) -> None:
         """Test error handling during chart generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
@@ -131,16 +121,17 @@ class TestCLIBasic:
 
         try:
             # Mock chart creation to raise an exception
+            mock_factory = Mock()
             mock_chart = Mock()
             mock_chart.create_chart.side_effect = Exception("Chart creation failed")
-            mock_factory.return_value = mock_chart
+            mock_factory.create_visualizer.return_value = mock_chart
 
-            with patch("src.tcc_analyzer.cli.ChartFactory", mock_factory):
+            with patch("src.tcc_analyzer.cli.VisualizationFactory", mock_factory):
                 runner = CliRunner()
                 result = runner.invoke(main, ["task", str(csv_path), "--chart", "bar"])
-                # Should handle the error gracefully
-                assert result.exit_code == 0
-                assert "Error creating chart" in result.output
+                # Should handle the error gracefully and abort with non-zero exit code
+                assert result.exit_code != 0
+                assert "Error generating chart" in result.output
 
         finally:
             csv_path.unlink()

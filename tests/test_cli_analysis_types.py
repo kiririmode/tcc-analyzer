@@ -93,9 +93,13 @@ class TestCLIAnalysisTypes:
             )
             assert result.exit_code == 0
             assert "Chart saved" in result.output
-            assert "mode_analysis_chart.png" in result.output
+            assert "_mode_bar.png" in result.output
         finally:
             csv_path.unlink()
+            # Clean up generated chart file
+            chart_file = Path(f"{csv_path.stem}_mode_bar.png")
+            if chart_file.exists():
+                chart_file.unlink()
 
     def test_task_command_with_project_mode_group_and_chart(self) -> None:
         """Test task command with project-mode grouping and chart generation."""
@@ -129,6 +133,10 @@ class TestCLIAnalysisTypes:
             )
             assert result.exit_code == 0
             assert "Chart saved" in result.output
-            assert "project_mode_analysis_chart.svg" in result.output
+            assert "_project-mode_pie.svg" in result.output
         finally:
             csv_path.unlink()
+            # Clean up generated chart file
+            chart_file = Path(f"{csv_path.stem}_project-mode_pie.svg")
+            if chart_file.exists():
+                chart_file.unlink()

@@ -62,7 +62,25 @@
 4. **テストスイート分割**: 大きなテストファイルを責務別に分割
 5. **品質ゲート強化**: pre-commit hooks、CI統合、継続的監視
 
-## ✨ 残存課題
+## 🚧 進行中タスク
 
-- `tests/test_visualization.py` (1,111行) - 可視化テストの分割 (優先度: 低)
-- チャート関連テストの実装依存性修正 (優先度: 低)
+### test_visualization.py の分割 (1,111行 → 600行以下)
+
+**現状:**
+- 唯一残存する600行超過ファイル (1,111行)
+- 可視化機能のテスト全般を含む
+
+**分割方針:**
+- `tests/test_visualization_charts.py` - チャート生成テスト (bar, pie, line, histogram)
+- `tests/test_visualization_heatmap.py` - ヒートマップ関連テスト
+- `tests/test_visualization_config.py` - 可視化設定・設定関連テスト
+- `tests/test_visualization_utils.py` - ユーティリティ・ヘルパー関数テスト
+
+**目標:**
+- 各ファイル300行以下に分割
+- テスト責務の明確化
+- 全ファイル600行制限達成
+
+## ✨ 残存課題 (低優先度)
+
+- チャート関連テストの実装依存性修正
