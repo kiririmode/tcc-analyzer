@@ -58,7 +58,7 @@ class TestDataProcessor:
         data = [
             {"duration": "01:00:00"},  # 3600 seconds
             {"duration": "02:00:00"},  # 7200 seconds
-            {"duration": "30:00"},  # 1800 seconds
+            {"duration": "00:30:00"},  # 1800 seconds
         ]
 
         values = DataProcessor.extract_numeric_values(data, "duration")
@@ -117,9 +117,9 @@ class TestDataProcessor:
 
     def test_time_to_seconds_edge_cases(self):
         """Test time string conversion edge cases."""
-        # Test MM:SS format (2 parts)
+        # Test HH:MM format (2 parts)
         result = DataProcessor._time_to_seconds("05:30")
-        assert result == 330.0  # 5*60 + 30
+        assert result == 19800.0  # 5*3600 + 30*60
 
         # Test invalid format (too many parts)
         result = DataProcessor._time_to_seconds("01:02:03:04")

@@ -266,19 +266,19 @@ class DataProcessor:
 
     @staticmethod
     def _time_to_seconds(time_str: str) -> float:
-        """Convert time string (HH:MM:SS) to seconds."""
+        """Convert time string (HH:MM or HH:MM:SS) to seconds."""
         try:
             parts = time_str.split(":")
             # Constants for time part counts
             time_parts_hh_mm_ss = 3
-            time_parts_mm_ss = 2
+            time_parts_hh_mm = 2
 
             if len(parts) == time_parts_hh_mm_ss:
                 hours, minutes, seconds = map(int, parts)
                 return hours * 3600 + minutes * 60 + seconds
-            elif len(parts) == time_parts_mm_ss:
-                minutes, seconds = map(int, parts)
-                return minutes * 60 + seconds
+            elif len(parts) == time_parts_hh_mm:
+                hours, minutes = map(int, parts)
+                return hours * 3600 + minutes * 60
             else:
                 return 0.0
         except (ValueError, IndexError):
