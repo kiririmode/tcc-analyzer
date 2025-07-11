@@ -113,6 +113,9 @@ def task(
     analysis_method = analysis_methods.get(group_by, analyzer.analyze_by_project)
     results = analysis_method(sort_by=sort_by, reverse=reverse)
 
+    # Always add total row and percentages
+    results = analyzer.add_total_row_and_percentages(results, group_by)
+
     # Display results in requested format
     display_methods = {
         "json": analyzer.display_json,

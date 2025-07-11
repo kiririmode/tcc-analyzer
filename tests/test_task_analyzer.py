@@ -7,6 +7,7 @@ import sys
 import tempfile
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import pytest
@@ -91,6 +92,148 @@ class TestTaskAnalyzer:
         # Test zero base time (edge case)
         percentage = analyzer._calculate_percentage(duration, "00:00:00")
         assert percentage == 0.0
+
+    def test_add_total_row_and_percentages(self) -> None:
+        """Test adding total row and percentage columns to results."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test with project analysis results
+        results = [
+            {
+                "project": "Project A",
+                "total_time": "01:30:00",
+                "total_seconds": 5400,
+                "task_count": "2",
+            },
+            {
+                "project": "Project B",
+                "total_time": "00:30:00",
+                "total_seconds": 1800,
+                "task_count": "1",
+            },
+        ]
+
+        updated_results = analyzer.add_total_row_and_percentages(results, "project")
+
+        # Should have 3 rows now (2 original + 1 total)
+        assert len(updated_results) == 3
+
+        # Check that percentages were added to original rows
+        assert updated_results[0]["percentage"] == "75.0%"  # 5400/7200 * 100
+        assert updated_results[1]["percentage"] == "25.0%"  # 1800/7200 * 100
+
+        # Check total row
+        total_row = updated_results[2]
+        assert total_row["project"] == "Total"
+        assert (
+            total_row["total_time"] == "02:00:00"
+        )  # 5400 + 1800 = 7200 seconds = 2 hours
+        assert total_row["total_seconds"] == 7200
+        assert total_row["task_count"] == "3"  # 2 + 1
+        assert total_row["percentage"] == "100.0%"
+
+    def test_add_total_row_and_percentages_mode(self) -> None:
+        """Test adding total row and percentages for mode analysis."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results = [
+            {
+                "mode": "Focus",
+                "total_time": "02:00:00",
+                "total_seconds": 7200,
+                "task_count": "3",
+            },
+        ]
+
+        updated_results = analyzer.add_total_row_and_percentages(results, "mode")
+
+        assert len(updated_results) == 2
+        assert updated_results[0]["percentage"] == "100.0%"
+
+        # Check total row
+        total_row = updated_results[1]
+        assert total_row["mode"] == "Total"
+        assert total_row["total_time"] == "02:00:00"
+        assert total_row["percentage"] == "100.0%"
+
+    def test_add_total_row_and_percentages_project_mode(self) -> None:
+        """Test adding total row and percentages for project-mode analysis."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results = [
+            {
+                "project": "Project A",
+                "mode": "Focus",
+                "total_time": "01:00:00",
+                "total_seconds": 3600,
+                "task_count": "2",
+                "project_mode": "Project A | Focus",
+            },
+            {
+                "project": "Project A",
+                "mode": "Meeting",
+                "total_time": "00:30:00",
+                "total_seconds": 1800,
+                "task_count": "1",
+                "project_mode": "Project A | Meeting",
+            },
+        ]
+
+        updated_results = analyzer.add_total_row_and_percentages(
+            results, "project-mode"
+        )
+
+        assert len(updated_results) == 3
+        assert updated_results[0]["percentage"] == "66.7%"  # 3600/5400 * 100 ≈ 66.7%
+        assert updated_results[1]["percentage"] == "33.3%"  # 1800/5400 * 100 ≈ 33.3%
+
+        # Check total row
+        total_row = updated_results[2]
+        assert total_row["project"] == "Total"
+        assert total_row["mode"] == "-"
+        assert total_row["project_mode"] == "Total | -"
+        assert (
+            total_row["total_time"] == "01:30:00"
+        )  # 3600 + 1800 = 5400 seconds = 1.5 hours
+        assert total_row["percentage"] == "100.0%"
+
+    def test_add_total_row_and_percentages_empty_results(self) -> None:
+        """Test adding total row with empty results."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        results: list[dict[str, Any]] = []
+        updated_results = analyzer.add_total_row_and_percentages(results, "project")
+
+        # Should return empty list unchanged
+        assert len(updated_results) == 0
+
+    def test_create_total_row(self) -> None:
+        """Test creating total row for different analysis types."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test project analysis total row
+        total_row = analyzer._create_total_row(
+            timedelta(hours=2, minutes=30), 5, "project"
+        )
+
+        assert total_row["project"] == "Total"
+        assert total_row["total_time"] == "02:30:00"
+        assert total_row["total_seconds"] == 9000
+        assert total_row["task_count"] == "5"
+        assert total_row["percentage"] == "100.0%"
+
+        # Test mode analysis total row
+        total_row = analyzer._create_total_row(timedelta(hours=1), 3, "mode")
+
+        assert total_row["mode"] == "Total"
+        assert total_row["total_time"] == "01:00:00"
+
+        # Test project-mode analysis total row
+        total_row = analyzer._create_total_row(timedelta(minutes=45), 2, "project-mode")
+
+        assert total_row["project"] == "Total"
+        assert total_row["mode"] == "-"
+        assert total_row["project_mode"] == "Total | -"
 
     def test_add_percentage_to_results(self) -> None:
         """Test adding percentage column to results."""

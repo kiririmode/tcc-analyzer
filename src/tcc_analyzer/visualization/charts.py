@@ -148,6 +148,19 @@ class ChartCreationMixin:
         elif chart_type == "pie" and not prepared_data.get("values"):
             raise ValueError("Invalid data for pie chart")
 
+    def _create_chart_with_common_pattern(
+        self,
+        data: list[dict[str, Any]],
+        x_key: str,
+        y_key: str,
+        chart_type: str,
+        **kwargs: Any,
+    ) -> tuple[dict[str, Any], Figure, Axes]:
+        """Prepare and validate chart data using common pattern."""
+        prepared = self._prepare_chart_data(data, x_key, y_key, **kwargs)
+        self._validate_chart_data(prepared, chart_type)
+        return prepared, prepared["fig"], prepared["ax"]
+
 
 class BarChartVisualizer(BaseVisualizer, ChartStyleMixin, ChartCreationMixin):
     """Bar chart visualizer for categorical data."""
@@ -167,11 +180,10 @@ class BarChartVisualizer(BaseVisualizer, ChartStyleMixin, ChartCreationMixin):
             Tuple of (figure, axes)
 
         """
-        # Prepare data using common pattern
-        prepared = self._prepare_chart_data(data, x_key, y_key, **kwargs)
-        self._validate_chart_data(prepared, "bar")
-
-        fig, ax = prepared["fig"], prepared["ax"]
+        # Use common pattern
+        prepared, fig, ax = self._create_chart_with_common_pattern(
+            data, x_key, y_key, "bar", **kwargs
+        )
         labels, values = prepared["labels"], prepared["values"]
 
         # Create bar chart
@@ -455,11 +467,10 @@ class HistogramVisualizer(BaseVisualizer, ChartStyleMixin, ChartCreationMixin):
             Tuple of (figure, axes)
 
         """
-        # For histograms, x_key contains the value_key
-        prepared = self._prepare_chart_data(data, x_key, "", **kwargs)
-        self._validate_chart_data(prepared, "histogram")
-
-        fig, ax = prepared["fig"], prepared["ax"]
+        # For histograms, x_key contains the value_key - use common pattern
+        prepared, fig, ax = self._create_chart_with_common_pattern(
+            data, x_key, "", "histogram", **kwargs
+        )
         values = prepared["values"]
 
         # Create histogram
