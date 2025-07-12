@@ -35,7 +35,7 @@ def main() -> None:
 )
 @click.option(
     "--output-format",
-    type=click.Choice(["table", "json", "csv"]),
+    type=click.Choice(["table", "json", "csv", "slack"]),
     default="table",
     help="Output format for the analysis results",
 )
@@ -120,6 +120,7 @@ def task(
     display_methods = {
         "json": analyzer.display_json,
         "csv": analyzer.display_csv,
+        "slack": analyzer.display_slack,
     }
     display_method = display_methods.get(output_format, analyzer.display_table)
     display_method(results, analysis_type=group_by, base_time=base_time)
@@ -253,7 +254,7 @@ def _create_pie_chart(
     top_results = DataProcessor.filter_top_items(results, "total_seconds", 10)
 
     visualizer.create_chart(
-        top_results, label_key=config["key"], value_key="total_seconds", donut=False
+        top_results, x_key=config["key"], y_key="total_seconds", donut=False
     )
     visualizer.customize_chart(
         title=f"Time Distribution by {config['title_prefix']} (Top 10)"
@@ -288,7 +289,7 @@ def _create_histogram_chart(
     visualizer: Any, results: list[dict[str, Any]], group_by: str
 ) -> None:
     """Create histogram visualization."""
-    visualizer.create_chart(results, value_key="total_seconds")
+    visualizer.create_chart(results, x_key="total_seconds", y_key="")
     visualizer.customize_chart(
         title=f"Time Distribution Histogram ({group_by.title()})",
         xlabel="Time (hours)",
@@ -300,7 +301,7 @@ def _create_heatmap_chart(
     visualizer: Any, results: list[dict[str, Any]], group_by: str
 ) -> None:
     """Create heatmap visualization."""
-    visualizer.create_chart(results)
+    visualizer.create_chart(results, x_key="", y_key="")
     visualizer.customize_chart(title=f"Correlation Heatmap ({group_by.title()})")
 
 

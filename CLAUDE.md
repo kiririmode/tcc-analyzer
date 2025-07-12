@@ -43,6 +43,13 @@ This document contains critical information about working with this codebase. Fo
      - Extract common patterns into shared utility functions
      - Use `similarity-py src --threshold 0.85 --min-lines 8` for analysis
      - Review and refactor identified duplicates immediately
+   - **File Length Limits**: Keep Python files manageable
+     - **Maximum Lines**: No Python file should exceed 600 lines (including tests)
+     - Check with: `python scripts/check_file_length.py`
+     - Files exceeding 600 lines should be refactored into smaller modules
+     - Consider extracting classes, functions, or logical components
+     - Maintain clear separation of concerns
+     - Large test files should be split by test categories or functionality
 
 3. Testing Requirements
    - Framework: `uv run --frozen pytest`
@@ -96,6 +103,7 @@ This document contains critical information about working with this codebase. Fo
   - Type checking (pyright)
   - Test coverage ≥85% per class and overall
   - Cyclomatic complexity ≤10 per function
+  - File length ≤600 lines per Python file
 
 ## Python Tools
 

@@ -1,5 +1,6 @@
 """Base classes and interfaces for visualization."""
 
+import os
 import re
 import warnings
 from abc import ABC, abstractmethod
@@ -7,11 +8,16 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 from matplotlib import font_manager
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+
+# Set non-interactive backend for tests and CLI usage
+if os.environ.get("PYTEST_CURRENT_TEST") or not os.environ.get("DISPLAY"):
+    matplotlib.use("Agg")
 
 
 class ChartType(Enum):

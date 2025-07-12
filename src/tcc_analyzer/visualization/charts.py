@@ -85,7 +85,9 @@ class ChartStyleMixin:
         # Handle special marker parameter mapping
         return {
             "color": kwargs.get("marker_color", defaults["color"]),
-            "size": kwargs.get("marker_size", defaults["size"]),
+            "s": kwargs.get(
+                "marker_size", defaults["size"]
+            ),  # matplotlib uses 's' for scatter size
             "alpha": kwargs.get("marker_alpha", defaults["alpha"]),
             "marker": kwargs.get("marker_style", defaults["marker"]),
         }
@@ -425,6 +427,20 @@ class HeatmapVisualizer(BaseVisualizer):
 
         # Convert to DataFrame
         df = DataProcessor.create_dataframe(data)
+
+        # Convert potential numeric string columns to numeric
+        for col in df.columns:
+            if col in ["task_count", "total_seconds", "percentage"]:
+                # Try to convert string percentages and counts to numeric
+                if df[col].dtype == "object":
+                    # Remove % sign and convert to float
+                    if col == "percentage":
+                        # Type: ignore for pandas overload complexity
+                        df[col] = pd.to_numeric(  # type: ignore[assignment]
+                            df[col].str.replace("%", ""), errors="coerce"
+                        )
+                    else:
+                        df[col] = pd.to_numeric(df[col], errors="coerce")  # type: ignore[assignment]
 
         # Select only numeric columns for correlation
         numeric_columns = df.select_dtypes(include=[np.number]).columns
