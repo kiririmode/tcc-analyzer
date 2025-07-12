@@ -135,10 +135,11 @@ class TestStatisticalAnalyzer:
         assert work_stats["count"] == 2
         assert work_stats["sum"] == 30  # 10 + 20
 
-    def test_calculate_category_distribution_missing_keys(
-        self, sample_data: list[dict[str, Any]]
+    def test_missing_keys_handling(
+        self, sample_data: list[dict[str, Any]], time_series_data: list[dict[str, Any]]
     ):
-        """Test category distribution with missing keys."""
+        """Test handling of missing keys in various statistical functions."""
+        # Test category distribution with missing keys
         dist = StatisticalAnalyzer.calculate_category_distribution(
             sample_data, "nonexistent", "value"
         )
@@ -148,6 +149,17 @@ class TestStatisticalAnalyzer:
             sample_data, "category", "nonexistent"
         )
         assert dist == {}
+
+        # Test trend analysis with missing keys
+        trend = StatisticalAnalyzer.calculate_trend_analysis(
+            time_series_data, "nonexistent", "value"
+        )
+        assert trend == {}
+
+        trend = StatisticalAnalyzer.calculate_trend_analysis(
+            time_series_data, "date", "nonexistent"
+        )
+        assert trend == {}
 
     def test_calculate_category_distribution_empty_data(self):
         """Test category distribution with empty data."""
@@ -297,20 +309,6 @@ class TestStatisticalAnalyzer:
         # Verify trend direction (increasing values)
         assert trend["trend_direction"] == "increasing"
         assert trend["trend_slope"] > 0
-
-    def test_calculate_trend_analysis_missing_keys(
-        self, time_series_data: list[dict[str, Any]]
-    ):
-        """Test trend analysis with missing keys."""
-        trend = StatisticalAnalyzer.calculate_trend_analysis(
-            time_series_data, "nonexistent", "value"
-        )
-        assert trend == {}
-
-        trend = StatisticalAnalyzer.calculate_trend_analysis(
-            time_series_data, "date", "nonexistent"
-        )
-        assert trend == {}
 
     def test_calculate_trend_analysis_empty_data(self):
         """Test trend analysis with empty data."""

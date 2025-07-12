@@ -17,6 +17,27 @@ from tcc_analyzer.visualization.charts import (
 )
 
 
+class TestVisualizationBase:
+    """Base test class for common visualization functionality."""
+
+    def _test_invalid_data_error(
+        self, visualizer_class: Any, expected_error_message: str
+    ) -> None:
+        """Test error handling with invalid data for any visualizer."""
+        with (
+            patch("tcc_analyzer.visualization.base.plt.style.use"),
+            patch("tcc_analyzer.visualization.base.plt.subplots") as mock_subplots,
+        ):
+            mock_fig = Mock()
+            mock_ax = Mock()
+            mock_subplots.return_value = (mock_fig, mock_ax)
+
+            visualizer = visualizer_class()
+
+            with pytest.raises(ValueError, match=expected_error_message):
+                visualizer.create_chart([], x_key="project", y_key="total_seconds")
+
+
 class TestBarChartVisualizer:
     """Test BarChartVisualizer."""
 
@@ -51,18 +72,12 @@ class TestBarChartVisualizer:
         assert ax == mock_ax
         mock_ax.bar.assert_called_once()
 
-    @patch("tcc_analyzer.visualization.base.plt.style.use")
-    @patch("tcc_analyzer.visualization.base.plt.subplots")
-    def test_create_chart_invalid_data(self, mock_subplots: Any, mock_style: Any):
+    def test_create_chart_invalid_data(self) -> None:
         """Test error with invalid data."""
-        mock_fig = Mock()
-        mock_ax = Mock()
-        mock_subplots.return_value = (mock_fig, mock_ax)
-
-        visualizer = BarChartVisualizer()
-
-        with pytest.raises(ValueError, match="Invalid data for bar chart"):
-            visualizer.create_chart([], x_key="project", y_key="total_seconds")
+        base_tester = TestVisualizationBase()
+        base_tester._test_invalid_data_error(
+            BarChartVisualizer, "Invalid data for bar chart"
+        )
 
 
 class TestPieChartVisualizer:
@@ -95,18 +110,12 @@ class TestPieChartVisualizer:
         assert ax == mock_ax
         mock_ax.pie.assert_called_once()
 
-    @patch("tcc_analyzer.visualization.base.plt.style.use")
-    @patch("tcc_analyzer.visualization.base.plt.subplots")
-    def test_create_chart_invalid_data(self, mock_subplots: Any, mock_style: Any):
+    def test_create_chart_invalid_data(self) -> None:
         """Test error with invalid data."""
-        mock_fig = Mock()
-        mock_ax = Mock()
-        mock_subplots.return_value = (mock_fig, mock_ax)
-
-        visualizer = PieChartVisualizer()
-
-        with pytest.raises(ValueError, match="Invalid data for pie chart"):
-            visualizer.create_chart([], x_key="project", y_key="total_seconds")
+        base_tester = TestVisualizationBase()
+        base_tester._test_invalid_data_error(
+            PieChartVisualizer, "Invalid data for pie chart"
+        )
 
 
 class TestTimeSeriesVisualizer:

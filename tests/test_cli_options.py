@@ -10,6 +10,45 @@ from src.tcc_analyzer.cli import main
 class TestCLIOptions:
     """Test class for CLI command options functionality."""
 
+    def _create_csv_file(self, content: str) -> Path:
+        """Create a temporary CSV file with given content."""
+        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
+        temp_file.write(content)
+        temp_file.flush()
+        temp_file.close()
+        return Path(temp_file.name)
+
+    def _cleanup_files(self, csv_path: Path, chart_pattern: str) -> None:
+        """Clean up CSV file and generated chart files."""
+        csv_path.unlink()
+        chart_file = Path(f"{csv_path.stem}_{chart_pattern}")
+        if chart_file.exists():
+            chart_file.unlink()
+
+    def _run_chart_test(self, chart_type: str, chart_format: str) -> None:
+        """Run a generic chart generation test."""
+        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
+        csv_path = self._create_csv_file(csv_content)
+
+        try:
+            runner = CliRunner()
+            result = runner.invoke(
+                main,
+                [
+                    "task",
+                    str(csv_path),
+                    "--chart",
+                    chart_type,
+                    "--chart-format",
+                    chart_format,
+                ],
+            )
+            assert result.exit_code == 0
+            assert "Chart saved" in result.output
+            assert f"_project_{chart_type}.{chart_format}" in result.output
+        finally:
+            self._cleanup_files(csv_path, f"project_{chart_type}.{chart_format}")
+
     def test_task_command_with_base_time(self) -> None:
         """Test task command with base time option."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
@@ -78,53 +117,16 @@ class TestCLIOptions:
         finally:
             csv_path.unlink()
 
-    def test_task_command_with_bar_chart(self) -> None:
-        """Test task command with bar chart generation."""
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
+    def test_chart_generation_functionality(self) -> None:
+        """Test chart generation functionality for various chart types."""
+        # Test different chart types and formats
+        test_cases = [
+            ("bar", "png"),
+            ("pie", "svg"),
+        ]
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write(csv_content)
-            f.flush()
-            csv_path = Path(f.name)
-
-        try:
-            runner = CliRunner()
-            result = runner.invoke(
-                main, ["task", str(csv_path), "--chart", "bar", "--chart-format", "png"]
-            )
-            assert result.exit_code == 0
-            assert "Chart saved" in result.output
-            assert "_project_bar.png" in result.output
-        finally:
-            csv_path.unlink()
-            # Clean up generated chart file
-            chart_file = Path(f"{csv_path.stem}_project_bar.png")
-            if chart_file.exists():
-                chart_file.unlink()
-
-    def test_task_command_with_pie_chart(self) -> None:
-        """Test task command with pie chart generation."""
-        csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
-
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-            f.write(csv_content)
-            f.flush()
-            csv_path = Path(f.name)
-
-        try:
-            runner = CliRunner()
-            result = runner.invoke(
-                main, ["task", str(csv_path), "--chart", "pie", "--chart-format", "svg"]
-            )
-            assert result.exit_code == 0
-            assert "Chart saved" in result.output
-            assert "_project_pie.svg" in result.output
-        finally:
-            csv_path.unlink()
-            # Clean up generated chart file
-            chart_file = Path(f"{csv_path.stem}_project_pie.svg")
-            if chart_file.exists():
-                chart_file.unlink()
+        for chart_type, chart_format in test_cases:
+            self._run_chart_test(chart_type, chart_format)
 
     def test_task_command_with_line_chart(self) -> None:
         """Test task command with line chart generation."""
