@@ -72,8 +72,8 @@ class TestCLIOutputFormats:
                 main, ["task", str(csv_path), "--output-format", "slack"]
             )
             assert result.exit_code == 0
-            assert "📊 TaskChute Cloud 分析結果" in result.output
-            assert "*プロジェクト別時間分析*" in result.output
+            assert "⏰ TaskChute Cloud 分析レポート" in result.output
+            assert "*📂 プロジェクト別時間分析*" in result.output
             assert "Work" in result.output
             assert "```" in result.output
         finally:
@@ -102,8 +102,8 @@ class TestCLIOutputFormats:
                 ],
             )
             assert result.exit_code == 0
-            assert "📊 TaskChute Cloud 分析結果 (基準時間: 08:00)" in result.output
-            assert "*プロジェクト別時間分析*" in result.output
+            assert "⏰ TaskChute Cloud 分析レポート (基準時間: 08:00)" in result.output
+            assert "*📂 プロジェクト別時間分析*" in result.output
             assert "25.0%" in result.output  # 2/8 * 100
         finally:
             csv_path.unlink()
@@ -135,8 +135,8 @@ class TestCLIOutputFormats:
                 ],
             )
             assert result.exit_code == 0
-            assert "📊 TaskChute Cloud 分析結果" in result.output
-            assert "*モード別時間分析*" in result.output
+            assert "⏰ TaskChute Cloud 分析レポート" in result.output
+            assert "*🎯 モード別時間分析*" in result.output
             assert "Focus" in result.output
         finally:
             csv_path.unlink()
@@ -168,8 +168,8 @@ class TestCLIOutputFormats:
                 ],
             )
             assert result.exit_code == 0
-            assert "📊 TaskChute Cloud 分析結果" in result.output
-            assert "*プロジェクトxモード別時間分析*" in result.output
+            assert "⏰ TaskChute Cloud 分析レポート" in result.output
+            assert "*📂🎯 プロジェクト×モード別時間分析*" in result.output  # noqa: RUF001
             assert "Work" in result.output
             assert "Focus" in result.output
         finally:

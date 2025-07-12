@@ -51,6 +51,17 @@ class TaskAnalyzer:
         """Add total row and percentage columns to results."""
         return ResultProcessor.add_total_row_and_percentages(results, analysis_type)
 
+    def _delegate_display(
+        self,
+        method_name: str,
+        results: list[dict[str, Any]],
+        analysis_type: str = "project",
+        base_time: str | None = None,
+    ) -> None:
+        """Delegate display to result formatter."""
+        method = getattr(self._result_formatter, method_name)
+        method(results, analysis_type, base_time)
+
     def display_table(
         self,
         results: list[dict[str, Any]],
@@ -58,7 +69,7 @@ class TaskAnalyzer:
         base_time: str | None = None,
     ) -> None:
         """Display results as a rich table."""
-        self._result_formatter.display_table(results, analysis_type, base_time)
+        self._delegate_display("display_table", results, analysis_type, base_time)
 
     def display_json(
         self,
@@ -67,7 +78,7 @@ class TaskAnalyzer:
         base_time: str | None = None,
     ) -> None:
         """Display results as JSON."""
-        self._result_formatter.display_json(results, analysis_type, base_time)
+        self._delegate_display("display_json", results, analysis_type, base_time)
 
     def display_csv(
         self,
@@ -76,7 +87,7 @@ class TaskAnalyzer:
         base_time: str | None = None,
     ) -> None:
         """Display results as CSV."""
-        self._result_formatter.display_csv(results, analysis_type, base_time)
+        self._delegate_display("display_csv", results, analysis_type, base_time)
 
     def display_slack(
         self,
@@ -85,7 +96,7 @@ class TaskAnalyzer:
         base_time: str | None = None,
     ) -> None:
         """Display results in Slack-formatted message."""
-        self._result_formatter.display_slack(results, analysis_type, base_time)
+        self._delegate_display("display_slack", results, analysis_type, base_time)
 
     def _analyze_by_type(
         self, analysis_type: str, sort_by: str = "time", reverse: bool = False

@@ -17,6 +17,14 @@ class ResultFormatter:
         """Initialize the result formatter."""
         self.console = Console()
 
+    def _prepare_results_with_percentage(
+        self, results: list[dict[str, Any]], base_time: str | None
+    ) -> list[dict[str, Any]]:
+        """Add percentage column if base_time is provided."""
+        if base_time is not None:
+            return ResultProcessor.add_percentage_to_results(results, base_time)
+        return results
+
     def display_table(
         self,
         results: list[dict[str, Any]],
@@ -24,10 +32,7 @@ class ResultFormatter:
         base_time: str | None = None,
     ) -> None:
         """Display results as a rich table."""
-        # Add percentage column if base_time is provided
-        if base_time is not None:
-            results = ResultProcessor.add_percentage_to_results(results, base_time)
-
+        results = self._prepare_results_with_percentage(results, base_time)
         table = self._create_table(results, analysis_type, base_time)
         self.console.print(table)
 
@@ -38,10 +43,7 @@ class ResultFormatter:
         base_time: str | None = None,
     ) -> None:
         """Display results as JSON."""
-        # Add percentage column if base_time is provided
-        if base_time is not None:
-            results = ResultProcessor.add_percentage_to_results(results, base_time)
-
+        results = self._prepare_results_with_percentage(results, base_time)
         config = self._get_analysis_config(analysis_type)
         json_results: list[dict[str, Any]] = []
 
@@ -80,10 +82,7 @@ class ResultFormatter:
         base_time: str | None = None,
     ) -> None:
         """Display results as CSV."""
-        # Add percentage column if base_time is provided
-        if base_time is not None:
-            results = ResultProcessor.add_percentage_to_results(results, base_time)
-
+        results = self._prepare_results_with_percentage(results, base_time)
         self._print_csv(results, analysis_type, base_time)
 
     def display_slack(
@@ -93,10 +92,7 @@ class ResultFormatter:
         base_time: str | None = None,
     ) -> None:
         """Display results in Slack-formatted message."""
-        # Add percentage column if base_time is provided
-        if base_time is not None:
-            results = ResultProcessor.add_percentage_to_results(results, base_time)
-
+        results = self._prepare_results_with_percentage(results, base_time)
         slack_message = self._format_slack_message(results, analysis_type, base_time)
         print(slack_message)
 
@@ -340,30 +336,27 @@ class ResultFormatter:
         """Format results as Slack message."""
         config = self._get_analysis_config(analysis_type)
 
-        # Build header
-        header_parts = ["📊 TaskChute Cloud 分析結果"]
+        # Build enhanced header
+        header_parts = ["⏰ TaskChute Cloud 分析レポート"]
         if base_time is not None:
             header_parts.append(f"(基準時間: {base_time})")
         header = " ".join(header_parts)
 
         # Build analysis type description
         type_descriptions = {
-            "project": "プロジェクト別",
-            "mode": "モード別",
-            "project-mode": "プロジェクトxモード別",
+            "project": "📂 プロジェクト別",
+            "mode": "🎯 モード別",
+            "project-mode": "📂🎯 プロジェクト×モード別",  # noqa: RUF001
         }
         description = f"*{type_descriptions.get(analysis_type, analysis_type)}時間分析*"
 
-        # Build table
-        table_lines = [header, "", description, ""]
-
-        # Add column headers
+        # Build table with visual improvements
+        table_lines = ["", "```"]
         headers = self._get_slack_headers(config, results, base_time)
-        table_lines.append("```")
         table_lines.append(headers)
         table_lines.append("-" * len(headers))
 
-        # Add data rows
+        # Add data rows including total row with enhanced formatting
         for i, result in enumerate(results):
             row = self._format_slack_row(result, config, base_time)
 
@@ -376,7 +369,15 @@ class ResultFormatter:
 
         table_lines.append("```")
 
-        return "\n".join(table_lines)
+        # Combine all sections
+        all_lines = [header, "", description, *table_lines]
+        return "\n".join(all_lines)
+
+    def _should_include_percentage_field(
+        self, field: str, has_percentage: bool
+    ) -> bool:
+        """Check if percentage field should be included."""
+        return not (field == "percentage" and not has_percentage)
 
     def _get_slack_headers(
         self,
@@ -389,9 +390,8 @@ class ResultFormatter:
         has_percentage = bool(results and "percentage" in results[0])
 
         for field in config["fields"]:
-            if field == "percentage" and not has_percentage:
-                continue
-            headers.append(self._get_slack_header_name(field))
+            if self._should_include_percentage_field(field, has_percentage):
+                headers.append(self._get_slack_header_name(field))
 
         # Add base time percentage header if needed
         if base_time is not None and not has_percentage:
@@ -421,15 +421,12 @@ class ResultFormatter:
         has_percentage = "percentage" in result
 
         for field in config["fields"]:
-            if field == "percentage" and not has_percentage:
-                continue
-
-            value = str(result.get(field, ""))
-            # Truncate long project/mode names for Slack readability
-            if field in ["project", "mode"] and len(value) > MAX_SLACK_FIELD_LENGTH:
-                value = value[:TRUNCATED_LENGTH] + "..."
-
-            row_data.append(f"{value:>12}")
+            if self._should_include_percentage_field(field, has_percentage):
+                value = str(result.get(field, ""))
+                # Truncate long project/mode names for Slack readability
+                if field in ["project", "mode"] and len(value) > MAX_SLACK_FIELD_LENGTH:
+                    value = value[:TRUNCATED_LENGTH] + "..."
+                row_data.append(f"{value:>12}")
 
         # Add base time percentage if needed
         if base_time is not None and not has_percentage:
