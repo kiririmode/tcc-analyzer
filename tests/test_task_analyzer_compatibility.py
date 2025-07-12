@@ -10,12 +10,9 @@ from src.tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
 class TestTaskAnalyzerCompatibility:
     """Test class for TaskAnalyzer backward compatibility methods."""
 
-    def test_add_total_row_and_percentages(self) -> None:
-        """Test adding total row and percentage columns to results."""
-        analyzer = TaskAnalyzer(Path("dummy.csv"))
-
-        # Test with project analysis results
-        results = [
+    def _create_basic_project_results(self) -> list[dict[str, Any]]:
+        """Create basic project results for testing."""
+        return [
             {
                 "project": "Work",
                 "total_time": "04:00",
@@ -30,17 +27,32 @@ class TestTaskAnalyzerCompatibility:
             },
         ]
 
+    def _verify_percentage_calculations(
+        self,
+        updated_results: list[dict[str, Any]],
+        expected_work: str,
+        expected_personal: str,
+    ) -> None:
+        """Verify percentage calculations for work and personal projects."""
+        work_result = next(r for r in updated_results if r["project"] == "Work")
+        assert work_result["percentage"] == expected_work
+
+        personal_result = next(r for r in updated_results if r["project"] == "Personal")
+        assert personal_result["percentage"] == expected_personal
+
+    def test_add_total_row_and_percentages(self) -> None:
+        """Test adding total row and percentage columns to results."""
+        analyzer = TaskAnalyzer(Path("dummy.csv"))
+
+        # Test with project analysis results
+        results = self._create_basic_project_results()
         updated_results = analyzer.add_total_row_and_percentages(results, "project")
 
         # Should have original results plus total row
         assert len(updated_results) == 3
 
         # Check percentages were added
-        work_result = next(r for r in updated_results if r["project"] == "Work")
-        assert work_result["percentage"] == "66.7%"  # 4/6 * 100
-
-        personal_result = next(r for r in updated_results if r["project"] == "Personal")
-        assert personal_result["percentage"] == "33.3%"  # 2/6 * 100
+        self._verify_percentage_calculations(updated_results, "66.7%", "33.3%")
 
         # Check total row
         total_result = next(r for r in updated_results if r["project"] == "Total")
@@ -180,9 +192,4 @@ class TestTaskAnalyzerCompatibility:
         updated_results = analyzer._add_percentage_to_results(results, "08:00")
 
         assert len(updated_results) == 2
-
-        work_result = next(r for r in updated_results if r["project"] == "Work")
-        assert work_result["percentage"] == "50.0%"  # 4/8 * 100
-
-        personal_result = next(r for r in updated_results if r["project"] == "Personal")
-        assert personal_result["percentage"] == "25.0%"  # 2/8 * 100
+        self._verify_percentage_calculations(updated_results, "50.0%", "25.0%")

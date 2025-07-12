@@ -83,16 +83,21 @@ class DataAnalyzer:
 
         return field_data
 
+    def _is_valid_tag_data(self, tag_names_str: str | float) -> bool:
+        """Check if tag data is valid for processing."""
+        return not (
+            pd.isna(tag_names_str)  # type: ignore[arg-type]
+            or tag_names_str == ""
+            or not isinstance(tag_names_str, str)
+        )
+
     def _parse_tag_names(self, tag_names_str: str | float) -> list[str]:
         """Parse tag names from CSV string (comma-separated)."""
-        if pd.isna(tag_names_str) or tag_names_str == "":  # type: ignore[arg-type]
-            return []
-
-        if not isinstance(tag_names_str, str):
+        if not self._is_valid_tag_data(tag_names_str):
             return []
 
         # Split by comma and strip whitespace
-        tags = [tag.strip() for tag in tag_names_str.split(",")]
+        tags = [tag.strip() for tag in str(tag_names_str).split(",")]
         return [tag for tag in tags if tag]  # Remove empty strings
 
     def _filter_by_tag(self, data: pd.DataFrame, tag_filter: str) -> pd.DataFrame:

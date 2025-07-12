@@ -384,8 +384,8 @@ class TestTaskAnalyzerFormatting:
         analyzer.display_slack(results)
 
         captured = capsys.readouterr()
-        assert "📊 TaskChute Cloud 分析結果" in captured.out
-        assert "*プロジェクト別時間分析*" in captured.out
+        assert "⏰ TaskChute Cloud 分析レポート" in captured.out
+        assert "*📂 プロジェクト別時間分析*" in captured.out
         assert "Test Project" in captured.out
         assert "01:30" in captured.out
         assert "75.0%" in captured.out
@@ -408,8 +408,8 @@ class TestTaskAnalyzerFormatting:
         analyzer.display_slack(results, "project", "08:00")
 
         captured = capsys.readouterr()
-        assert "📊 TaskChute Cloud 分析結果 (基準時間: 08:00)" in captured.out
-        assert "*プロジェクト別時間分析*" in captured.out
+        assert "⏰ TaskChute Cloud 分析レポート (基準時間: 08:00)" in captured.out
+        assert "*📂 プロジェクト別時間分析*" in captured.out
         assert "50.0%" in captured.out  # 4/8 * 100
 
     def test_display_slack_mode_analysis(
@@ -437,8 +437,8 @@ class TestTaskAnalyzerFormatting:
         analyzer.display_slack(results, analysis_type="mode")
 
         captured = capsys.readouterr()
-        assert "📊 TaskChute Cloud 分析結果" in captured.out
-        assert "*モード別時間分析*" in captured.out
+        assert "⏰ TaskChute Cloud 分析レポート" in captured.out
+        assert "*🎯 モード別時間分析*" in captured.out
         assert "Focus Mode" in captured.out
         assert "Meeting Mode" in captured.out
         assert "02:00" in captured.out
@@ -473,8 +473,8 @@ class TestTaskAnalyzerFormatting:
         analyzer.display_slack(results, analysis_type="project-mode")
 
         captured = capsys.readouterr()
-        assert "📊 TaskChute Cloud 分析結果" in captured.out
-        assert "*プロジェクトxモード別時間分析*" in captured.out
+        assert "⏰ TaskChute Cloud 分析レポート" in captured.out
+        assert "*📂🎯 プロジェクト×モード別時間分析*" in captured.out  # noqa: RUF001
         assert "Project A" in captured.out
         assert "Focus" in captured.out
         assert "Meeting" in captured.out

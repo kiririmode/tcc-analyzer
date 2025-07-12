@@ -273,8 +273,12 @@ class DataProcessor:
     @staticmethod
     def _time_to_seconds(time_str: str) -> float:
         """Convert time string (HH:MM or HH:MM:SS) to seconds."""
+        return DataProcessor._convert_time_parts_to_seconds(time_str.split(":"))
+
+    @staticmethod
+    def _convert_time_parts_to_seconds(parts: list[str]) -> float:
+        """Convert time parts list to seconds."""
         try:
-            parts = time_str.split(":")
             # Constants for time part counts
             time_parts_hh_mm_ss = 3
             time_parts_hh_mm = 2
