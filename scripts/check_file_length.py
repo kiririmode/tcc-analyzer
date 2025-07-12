@@ -38,7 +38,7 @@ def main() -> int:
     return _report_results(violations, args.max_lines)
 
 
-def _parse_arguments():
+def _parse_arguments() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
         description="Check Python files for excessive line count"
@@ -63,12 +63,12 @@ def _parse_arguments():
     return parser.parse_args()
 
 
-def _get_files_to_check(args):
+def _get_files_to_check(args: argparse.Namespace) -> list[Path]:
     """Get list of files to check."""
     if args.files:
         return [Path(f) for f in args.files if f.endswith(".py")]
 
-    files_to_check = []
+    files_to_check: list[Path] = []
     for directory in ["src", "tests"]:
         dir_path = Path(directory)
         if dir_path.exists():
@@ -81,12 +81,14 @@ def _get_files_to_check(args):
     return _apply_exclusions(files_to_check, args.exclude)
 
 
-def _apply_exclusions(files_to_check, excluded_patterns):
+def _apply_exclusions(
+    files_to_check: list[Path], excluded_patterns: list[str]
+) -> list[Path]:
     """Apply exclusion patterns to file list."""
     if not excluded_patterns:
         return files_to_check
 
-    filtered_files = []
+    filtered_files: list[Path] = []
     for file_path in files_to_check:
         file_str = str(file_path)
         if not any(pattern in file_str for pattern in excluded_patterns):
@@ -94,9 +96,9 @@ def _apply_exclusions(files_to_check, excluded_patterns):
     return filtered_files
 
 
-def _check_files(files_to_check, max_lines):
+def _check_files(files_to_check: list[Path], max_lines: int) -> list[tuple[Path, int]]:
     """Check files for violations."""
-    violations = []
+    violations: list[tuple[Path, int]] = []
     for file_path in files_to_check:
         if not file_path.exists():
             continue
@@ -107,7 +109,7 @@ def _check_files(files_to_check, max_lines):
     return violations
 
 
-def _report_results(violations, max_lines):
+def _report_results(violations: list[tuple[Path, int]], max_lines: int) -> int:
     """Report check results."""
     if violations:
         print(f"❌ Files exceeding {max_lines} lines:")

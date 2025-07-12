@@ -3,6 +3,7 @@
 import math
 from datetime import timedelta
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from src.tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
@@ -120,8 +121,9 @@ class TestTaskAnalyzerParsing:
             "personal",
         ]
 
-        # Test NaN input - skip this test as pd.NA is not supported
-        # assert analyzer._parse_tag_names(pd.NA) == []
+        # Test NaN input
+        nan_input: Any = pd.NA
+        assert analyzer._parse_tag_names(nan_input) == []
         assert analyzer._parse_tag_names(math.nan) == []
 
     def test_base_time_without_seconds(self) -> None:

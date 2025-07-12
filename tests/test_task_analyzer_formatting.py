@@ -4,6 +4,7 @@ import io
 import json
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from src.tcc_analyzer.analyzers.task_analyzer import TaskAnalyzer
@@ -151,15 +152,15 @@ class TestTaskAnalyzerFormatting:
             output = captured_output.getvalue()
 
             # Parse the JSON output
-            json_data = json.loads(output)
+            json_data: Any = json.loads(output)
 
             # Check that the result contains expected fields
             if isinstance(json_data, list):
                 # Direct list format when no base time
-                results = json_data
+                results: list[Any] = cast(list[Any], json_data)
             else:
                 # Wrapped format when base time is provided
-                results = json_data["results"]
+                results: list[Any] = cast(list[Any], json_data["results"])
 
             assert len(results) == 1
             result = results[0]
