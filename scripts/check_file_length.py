@@ -30,10 +30,10 @@ def main() -> int:
     """Check file lengths and report violations."""
     args = _parse_arguments()
     files_to_check = _get_files_to_check(args)
-    
+
     if not files_to_check:
         return 1
-        
+
     violations = _check_files(files_to_check, args.max_lines)
     return _report_results(violations, args.max_lines)
 
@@ -67,7 +67,7 @@ def _get_files_to_check(args):
     """Get list of files to check."""
     if args.files:
         return [Path(f) for f in args.files if f.endswith(".py")]
-    
+
     files_to_check = []
     for directory in ["src", "tests"]:
         dir_path = Path(directory)
@@ -75,9 +75,7 @@ def _get_files_to_check(args):
             files_to_check.extend(list(dir_path.rglob("*.py")))
 
     if not files_to_check:
-        print(
-            "No Python files found in src/ or tests/ directories", file=sys.stderr
-        )
+        print("No Python files found in src/ or tests/ directories", file=sys.stderr)
         return []
 
     return _apply_exclusions(files_to_check, args.exclude)
@@ -87,7 +85,7 @@ def _apply_exclusions(files_to_check, excluded_patterns):
     """Apply exclusion patterns to file list."""
     if not excluded_patterns:
         return files_to_check
-        
+
     filtered_files = []
     for file_path in files_to_check:
         file_str = str(file_path)

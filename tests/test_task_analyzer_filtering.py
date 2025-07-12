@@ -56,10 +56,10 @@ class TestTaskAnalyzerFiltering:
         # Create sample CSV data with tags
         csv_data = (
             "プロジェクト名,モード名,実績時間,タグ名\n"
-            "Work Project,Focus Mode,01:30,\"work,urgent\"\n"
-            "Personal Project,Reading Mode,00:45,\"personal,learning\"\n"
-            "Health Project,Exercise Mode,01:00,\"health,fitness\"\n"
-            "Work Project,Meeting Mode,00:30,\"work,meetings\"\n"
+            'Work Project,Focus Mode,01:30,"work,urgent"\n'
+            'Personal Project,Reading Mode,00:45,"personal,learning"\n'
+            'Health Project,Exercise Mode,01:00,"health,fitness"\n'
+            'Work Project,Meeting Mode,00:30,"work,meetings"\n'
         )
 
         with tempfile.NamedTemporaryFile(

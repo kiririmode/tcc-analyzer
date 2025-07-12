@@ -39,9 +39,7 @@ class TestTaskAnalyzerCompatibility:
         work_result = next(r for r in updated_results if r["project"] == "Work")
         assert work_result["percentage"] == "66.7%"  # 4/6 * 100
 
-        personal_result = next(
-            r for r in updated_results if r["project"] == "Personal"
-        )
+        personal_result = next(r for r in updated_results if r["project"] == "Personal")
         assert personal_result["percentage"] == "33.3%"  # 2/6 * 100
 
         # Check total row
@@ -186,7 +184,5 @@ class TestTaskAnalyzerCompatibility:
         work_result = next(r for r in updated_results if r["project"] == "Work")
         assert work_result["percentage"] == "50.0%"  # 4/8 * 100
 
-        personal_result = next(
-            r for r in updated_results if r["project"] == "Personal"
-        )
+        personal_result = next(r for r in updated_results if r["project"] == "Personal")
         assert personal_result["percentage"] == "25.0%"  # 2/8 * 100

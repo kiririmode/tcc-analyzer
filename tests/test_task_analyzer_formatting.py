@@ -26,9 +26,7 @@ class TestTaskAnalyzerFormatting:
         ]
 
         # Add percentage based on base time
-        results_with_percentage = analyzer._add_percentage_to_results(
-            results, "08:00"
-        )
+        results_with_percentage = analyzer._add_percentage_to_results(results, "08:00")
 
         # Check that percentage was added
         assert len(results_with_percentage) == 1
@@ -105,7 +103,7 @@ class TestTaskAnalyzerFormatting:
                 if "Project" in line:
                     header = line
                     break
-            
+
             assert header is not None
             assert "Project" in header
             assert "Total Time" in header
@@ -162,7 +160,7 @@ class TestTaskAnalyzerFormatting:
             else:
                 # Wrapped format when base time is provided
                 results = json_data["results"]
-            
+
             assert len(results) == 1
             result = results[0]
             assert result["project"] == "Test Project"
