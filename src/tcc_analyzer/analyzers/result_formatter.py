@@ -397,7 +397,20 @@ class ResultFormatter:
         if base_time is not None and not has_percentage:
             headers.append("基準%")
 
-        return " | ".join(f"{h:>12}" for h in headers)
+        # Apply alignment based on field type
+        aligned_headers: list[str] = []
+        for i, header in enumerate(headers):
+            field_names = list(config["fields"])
+            if i < len(field_names):
+                field = field_names[i]
+                if field in ["project", "mode"]:
+                    aligned_headers.append(f"{header:<12}")  # Left align
+                else:
+                    aligned_headers.append(f"{header:>12}")  # Right align
+            else:
+                # Base percentage column
+                aligned_headers.append(f"{header:>12}")
+        return " | ".join(aligned_headers)
 
     def _get_slack_header_name(self, field: str) -> str:
         """Get Slack-formatted header name for field."""
@@ -426,7 +439,11 @@ class ResultFormatter:
                 # Truncate long project/mode names for Slack readability
                 if field in ["project", "mode"] and len(value) > MAX_SLACK_FIELD_LENGTH:
                     value = value[:TRUNCATED_LENGTH] + "..."
-                row_data.append(f"{value:>12}")
+                # Apply alignment based on field type
+                if field in ["project", "mode"]:
+                    row_data.append(f"{value:<12}")  # Left align
+                else:
+                    row_data.append(f"{value:>12}")  # Right align
 
         # Add base time percentage if needed
         if base_time is not None and not has_percentage:
