@@ -1,5 +1,6 @@
 """Slack formatting utilities for TaskChute Cloud analysis."""
 
+from collections.abc import Callable
 from typing import Any
 
 
@@ -11,8 +12,8 @@ class SlackFormatter:
         results: list[dict[str, Any]],
         analysis_type: str,
         base_time: str | None,
-        get_analysis_config_func: Any,
-        is_total_row_func: Any,
+        get_analysis_config_func: Callable[[str], dict[str, Any]],
+        is_total_row_func: Callable[[int, list[str], int], bool],
     ) -> str:
         """Format results as Slack message."""
         config = get_analysis_config_func(analysis_type)
