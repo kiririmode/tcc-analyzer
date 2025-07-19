@@ -35,7 +35,9 @@ class TestCLIBasic:
             "Study,Focus,01:00:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -63,12 +65,16 @@ class TestCLIBasic:
             "Personal,Task,00:45:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f1:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f1:
             f1.write(csv_content1)
             f1.flush()
             csv_path1 = Path(f1.name)
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f2:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f2:
             f2.write(csv_content2)
             f2.flush()
             csv_path2 = Path(f2.name)
@@ -95,7 +101,9 @@ class TestCLIBasic:
         """Test that task command works correctly without chart generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -114,7 +122,9 @@ class TestCLIBasic:
         """Test error handling during chart generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)

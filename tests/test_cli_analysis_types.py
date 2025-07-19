@@ -19,7 +19,9 @@ class TestCLIAnalysisTypes:
             "Work,Review,01:30:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -43,7 +45,9 @@ class TestCLIAnalysisTypes:
             "Work,Review,01:30:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -71,7 +75,9 @@ class TestCLIAnalysisTypes:
             "Work,Review,01:30:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -111,7 +117,9 @@ class TestCLIAnalysisTypes:
             "Personal,Task,00:45:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)

@@ -14,7 +14,9 @@ class TestCLIOutputFormats:
         """Test task command with JSON output."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -39,7 +41,9 @@ class TestCLIOutputFormats:
             "Study,Focus,01:00:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -61,7 +65,9 @@ class TestCLIOutputFormats:
         """Test task command with Slack output format."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -83,7 +89,9 @@ class TestCLIOutputFormats:
         """Test task command with Slack output format and base time."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -116,7 +124,9 @@ class TestCLIOutputFormats:
             "Study,Focus,01:00:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -149,7 +159,9 @@ class TestCLIOutputFormats:
             "Study,Review,01:00:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)

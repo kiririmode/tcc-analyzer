@@ -12,7 +12,9 @@ class TestCLIOptions:
 
     def _create_csv_file(self, content: str) -> Path:
         """Create a temporary CSV file with given content."""
-        temp_file = tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False)
+        temp_file = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        )
         temp_file.write(content)
         temp_file.flush()
         temp_file.close()
@@ -53,7 +55,9 @@ class TestCLIOptions:
         """Test task command with base time option."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -75,7 +79,9 @@ class TestCLIOptions:
         """Test task command with invalid base time format."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -99,7 +105,9 @@ class TestCLIOptions:
         """Test task command with invalid base time edge cases."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -132,7 +140,9 @@ class TestCLIOptions:
         """Test task command with line chart generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -158,7 +168,9 @@ class TestCLIOptions:
         """Test task command with histogram chart generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -195,7 +207,9 @@ class TestCLIOptions:
             "Work,Review,01:00:00\n"
         )
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -220,7 +234,9 @@ class TestCLIOptions:
         """Test task command with show chart option."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -243,7 +259,9 @@ class TestCLIOptions:
         """Test chart output path generation."""
         csv_content = "プロジェクト名,モード名,実績時間\nWork,Focus,02:00:00\n"
 
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".csv", delete=False, encoding="utf-8"
+        ) as f:
             f.write(csv_content)
             f.flush()
             csv_path = Path(f.name)
@@ -272,7 +290,7 @@ class TestCLIOptions:
 
         for chart_format in formats:
             with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".csv", delete=False
+                mode="w", suffix=".csv", delete=False, encoding="utf-8"
             ) as f:
                 f.write(csv_content)
                 f.flush()
