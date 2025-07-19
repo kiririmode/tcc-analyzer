@@ -99,8 +99,6 @@ class ResultFormatter:
             analysis_type,
             base_time,
             self._get_analysis_config,
-            self._get_slack_headers,
-            self._format_slack_row,
             self._is_total_row,
         )
         print(slack_message)
@@ -354,129 +352,6 @@ class ResultFormatter:
         valid_fields = self._get_valid_fields(config, has_percentage)
         return has_percentage, valid_fields
 
-    def _get_slack_headers(
-        self,
-        config: dict[str, Any],
-        results: list[dict[str, Any]],
-        base_time: str | None,
-    ) -> str:
-        """Generate Slack table headers."""
-        return self.slack_formatter.get_slack_headers(
-            config,
-            results,
-            base_time,
-            self._get_data_context,
-            self._build_header_names,
-            self._calculate_column_widths,
-            self._format_aligned_headers,
-        )
-
-    def _build_header_names(
-        self,
-        config: dict[str, Any],
-        has_percentage: bool,
-        base_time: str | None,
-    ) -> list[str]:
-        """Build header names for display."""
-        return self.slack_formatter.build_header_names(
-            config, has_percentage, base_time, self._get_valid_fields
-        )
-
-    def _format_aligned_headers(
-        self,
-        headers: list[str],
-        widths: list[int],
-        config: dict[str, Any],
-        has_percentage: bool,
-    ) -> str:
-        """Format headers with proper alignment and widths."""
-        return self.slack_formatter.format_aligned_headers(
-            headers, widths, config, has_percentage, self._get_valid_fields
-        )
-
-    def _calculate_column_widths(
-        self,
-        config: dict[str, Any],
-        results: list[dict[str, Any]],
-        headers: list[str],
-        base_time: str | None,
-    ) -> list[int]:
-        """Calculate dynamic column widths based on content."""
-        return self.slack_formatter.calculate_column_widths(
-            config,
-            results,
-            headers,
-            base_time,
-            self._get_data_context,
-            self._calculate_field_widths,
-            self._calculate_base_time_width,
-        )
-
-    def _calculate_field_widths(
-        self,
-        fields: list[str],
-        headers: list[str],
-        results: list[dict[str, Any]],
-    ) -> list[int]:
-        """Calculate width for each field."""
-        return self.slack_formatter.calculate_field_widths(fields, headers, results)
-
-    def _calculate_base_time_width(self, results: list[dict[str, Any]]) -> int:
-        """Calculate width for base time percentage column."""
-        return self.slack_formatter.calculate_base_time_width(results)
-
-    def _format_slack_row(
-        self,
-        result: dict[str, Any],
-        config: dict[str, Any],
-        base_time: str | None,
-        all_results: list[dict[str, Any]],
-    ) -> str:
-        """Format a single result row for Slack."""
-        return self.slack_formatter.format_slack_row(
-            result,
-            config,
-            base_time,
-            all_results,
-            self._prepare_slack_row_headers,
-            self._calculate_column_widths,
-            self._format_slack_row_fields,
-            self._add_base_time_percentage_if_needed,
-        )
-
-    def _prepare_slack_row_headers(
-        self, config: dict[str, Any], has_percentage: bool, base_time: str | None
-    ) -> list[str]:
-        """Prepare headers for Slack row formatting."""
-        return self.slack_formatter.prepare_slack_row_headers(
-            config, has_percentage, base_time, self._build_header_names
-        )
-
-    def _format_slack_row_fields(
-        self,
-        result: dict[str, Any],
-        config: dict[str, Any],
-        has_percentage: bool,
-        widths: list[int],
-    ) -> list[str]:
-        """Format the main fields for a Slack row."""
-        return self.slack_formatter.format_slack_row_fields(
-            result, config, has_percentage, widths, self._get_valid_fields
-        )
-
-    def _add_base_time_percentage_if_needed(
-        self,
-        result: dict[str, Any],
-        base_time: str | None,
-        has_percentage: bool,
-        widths: list[int],
-        row_data: list[str],
-    ) -> None:
-        """Add base time percentage column if needed."""
-        self.slack_formatter.add_base_time_percentage_if_needed(
-            result, base_time, has_percentage, widths, row_data
-        )
-
     # Public methods for backward compatibility
     def get_analysis_config(self, analysis_type: str) -> dict[str, Any]:
         """Get configuration for analysis type."""
@@ -491,24 +366,3 @@ class ResultFormatter:
     def is_total_row(self, index: int, row_data: list[str], total_rows: int) -> bool:
         """Check if the current row is a total row."""
         return self._is_total_row(index, row_data, total_rows)
-
-    def get_slack_headers(
-        self,
-        config: dict[str, Any],
-        results: list[dict[str, Any]],
-        base_time: str | None,
-    ) -> str:
-        """Generate Slack table headers."""
-        return self._get_slack_headers(config, results, base_time)
-
-    def format_slack_row(
-        self,
-        result: dict[str, Any],
-        config: dict[str, Any],
-        base_time: str | None,
-        all_results: list[dict[str, Any]] | None = None,
-    ) -> str:
-        """Format a single result row for Slack."""
-        if all_results is None:
-            all_results = [result]
-        return self._format_slack_row(result, config, base_time, all_results)

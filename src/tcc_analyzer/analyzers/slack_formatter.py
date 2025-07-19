@@ -12,8 +12,6 @@ class SlackFormatter:
         analysis_type: str,
         base_time: str | None,
         get_analysis_config_func: Any,
-        get_slack_headers_func: Any,
-        format_slack_row_func: Any,
         is_total_row_func: Any,
     ) -> str:
         """Format results as Slack message."""
@@ -35,13 +33,13 @@ class SlackFormatter:
 
         # Build table with visual improvements
         table_lines = ["", "```"]
-        headers = get_slack_headers_func(config, results, base_time)
+        headers = self._get_slack_headers(config, results, base_time)
         table_lines.append(headers)
         table_lines.append("-" * len(headers))
 
         # Add data rows including total row with enhanced formatting
         for i, result in enumerate(results):
-            row = format_slack_row_func(result, config, base_time, results)
+            row = self._format_slack_row(result, config, base_time, results)
 
             # Add separator before total row
             row_fields = [str(result.get(field, "")) for field in config["fields"]]
@@ -56,32 +54,27 @@ class SlackFormatter:
         all_lines = [header, "", description, *table_lines]
         return "\n".join(all_lines)
 
-    def get_slack_headers(
+    def _get_slack_headers(
         self,
         config: dict[str, Any],
         results: list[dict[str, Any]],
         base_time: str | None,
-        get_data_context_func: Any,
-        build_header_names_func: Any,
-        calculate_column_widths_func: Any,
-        format_aligned_headers_func: Any,
     ) -> str:
         """Generate Slack table headers."""
         has_percentage = bool(results and "percentage" in results[0])
-        headers = build_header_names_func(config, has_percentage, base_time)
-        widths = calculate_column_widths_func(config, results, headers, base_time)
-        return format_aligned_headers_func(headers, widths, config, has_percentage)
+        headers = self._build_header_names(config, has_percentage, base_time)
+        widths = self._calculate_column_widths(config, results, headers, base_time)
+        return self._format_aligned_headers(headers, widths, config, has_percentage)
 
-    def build_header_names(
+    def _build_header_names(
         self,
         config: dict[str, Any],
         has_percentage: bool,
         base_time: str | None,
-        get_valid_fields_func: Any,
     ) -> list[str]:
         """Build header names for display."""
         headers: list[str] = []
-        valid_fields = get_valid_fields_func(config, has_percentage)
+        valid_fields = self._get_valid_fields(config, has_percentage)
 
         for field in valid_fields:
             headers.append(self._get_slack_header_name(field))
@@ -92,16 +85,15 @@ class SlackFormatter:
 
         return headers
 
-    def format_aligned_headers(
+    def _format_aligned_headers(
         self,
         headers: list[str],
         widths: list[int],
         config: dict[str, Any],
         has_percentage: bool,
-        get_valid_fields_func: Any,
     ) -> str:
         """Format headers with proper alignment and widths."""
-        valid_fields = get_valid_fields_func(config, has_percentage)
+        valid_fields = self._get_valid_fields(config, has_percentage)
         aligned_headers: list[str] = []
 
         for i, header in enumerate(headers):
@@ -115,28 +107,26 @@ class SlackFormatter:
 
         return " | ".join(aligned_headers)
 
-    def calculate_column_widths(
+    def _calculate_column_widths(
         self,
         config: dict[str, Any],
         results: list[dict[str, Any]],
         headers: list[str],
         base_time: str | None,
-        get_data_context_func: Any,
-        calculate_field_widths_func: Any,
-        calculate_base_time_width_func: Any,
     ) -> list[int]:
         """Calculate dynamic column widths based on content."""
-        has_percentage, valid_fields = get_data_context_func(config, results, base_time)
-        widths = calculate_field_widths_func(valid_fields, headers, results)
+        has_percentage = bool(results and "percentage" in results[0])
+        valid_fields = self._get_valid_fields(config, has_percentage)
+        widths = self._calculate_field_widths(valid_fields, headers, results)
 
         # Add base time percentage column width if needed
         if base_time is not None and not has_percentage:
-            base_width = calculate_base_time_width_func(results)
+            base_width = self._calculate_base_time_width(results)
             widths.append(base_width)
 
         return widths
 
-    def calculate_field_widths(
+    def _calculate_field_widths(
         self,
         fields: list[str],
         headers: list[str],
@@ -160,7 +150,7 @@ class SlackFormatter:
 
         return widths
 
-    def calculate_base_time_width(self, results: list[dict[str, Any]]) -> int:
+    def _calculate_base_time_width(self, results: list[dict[str, Any]]) -> int:
         """Calculate width for base time percentage column."""
         base_header_width = len("基準%")
         max_base_width = base_header_width
@@ -182,49 +172,34 @@ class SlackFormatter:
         }
         return header_mapping.get(field, field)
 
-    def format_slack_row(
+    def _format_slack_row(
         self,
         result: dict[str, Any],
         config: dict[str, Any],
         base_time: str | None,
         all_results: list[dict[str, Any]],
-        prepare_slack_row_headers_func: Any,
-        calculate_column_widths_func: Any,
-        format_slack_row_fields_func: Any,
-        add_base_time_percentage_if_needed_func: Any,
     ) -> str:
         """Format a single result row for Slack."""
         has_percentage = "percentage" in result
-        headers = prepare_slack_row_headers_func(config, has_percentage, base_time)
-        widths = calculate_column_widths_func(config, all_results, headers, base_time)
+        headers = self._build_header_names(config, has_percentage, base_time)
+        widths = self._calculate_column_widths(config, all_results, headers, base_time)
 
-        row_data = format_slack_row_fields_func(result, config, has_percentage, widths)
-        add_base_time_percentage_if_needed_func(
+        row_data = self._format_slack_row_fields(result, config, has_percentage, widths)
+        self._add_base_time_percentage_if_needed(
             result, base_time, has_percentage, widths, row_data
         )
 
         return " | ".join(row_data)
 
-    def prepare_slack_row_headers(
-        self,
-        config: dict[str, Any],
-        has_percentage: bool,
-        base_time: str | None,
-        build_header_names_func: Any,
-    ) -> list[str]:
-        """Prepare headers for Slack row formatting."""
-        return build_header_names_func(config, has_percentage, base_time)
-
-    def format_slack_row_fields(
+    def _format_slack_row_fields(
         self,
         result: dict[str, Any],
         config: dict[str, Any],
         has_percentage: bool,
         widths: list[int],
-        get_valid_fields_func: Any,
     ) -> list[str]:
         """Format the main fields for a Slack row."""
-        valid_fields = get_valid_fields_func(config, has_percentage)
+        valid_fields = self._get_valid_fields(config, has_percentage)
         row_data: list[str] = []
 
         for i, field in enumerate(valid_fields):
@@ -242,7 +217,7 @@ class SlackFormatter:
         else:
             return f"{value:>{width}}"  # Right align
 
-    def add_base_time_percentage_if_needed(
+    def _add_base_time_percentage_if_needed(
         self,
         result: dict[str, Any],
         base_time: str | None,
@@ -255,3 +230,13 @@ class SlackFormatter:
             width = widths[len(row_data)]
             percentage_value = str(result.get("percentage", ""))
             row_data.append(f"{percentage_value:>{width}}")
+
+    def _get_valid_fields(
+        self, config: dict[str, Any], has_percentage: bool
+    ) -> list[str]:
+        """Get list of valid fields that should be included."""
+        valid_fields: list[str] = []
+        for field in config["fields"]:
+            if not (field == "percentage" and not has_percentage):
+                valid_fields.append(field)
+        return valid_fields

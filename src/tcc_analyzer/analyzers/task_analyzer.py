@@ -163,21 +163,3 @@ class TaskAnalyzer:
     def _is_total_row(self, index: int, row_data: list[str], total_rows: int) -> bool:
         """Check if the current row is a total row."""
         return self._result_formatter.is_total_row(index, row_data, total_rows)
-
-    def _get_slack_headers(
-        self,
-        config: dict[str, Any],
-        results: list[dict[str, Any]],
-        base_time: str | None,
-    ) -> str:
-        """Generate Slack table headers."""
-        return self._result_formatter.get_slack_headers(config, results, base_time)
-
-    def _format_slack_row(
-        self,
-        result: dict[str, Any],
-        config: dict[str, Any],
-        base_time: str | None,
-    ) -> str:
-        """Format a single result row for Slack."""
-        return self._result_formatter.format_slack_row(result, config, base_time)
