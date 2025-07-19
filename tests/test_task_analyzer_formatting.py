@@ -481,13 +481,13 @@ class TestTaskAnalyzerFormatting:
         assert "01:30" in captured.out
         assert "60.0%" in captured.out
 
-    def test_display_slack_long_names_truncation(
+    def test_display_slack_long_names_no_truncation(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Test Slack output truncates long project/mode names."""
+        """Test Slack output displays full project/mode names without truncation."""
         results = [
             {
-                "project": "Very Long Project Name That Should Be Truncated",
+                "project": "Very Long Project Name That Should Be Displayed",
                 "total_time": "01:30",
                 "task_count": "2",
                 "total_seconds": 5400,
@@ -499,7 +499,7 @@ class TestTaskAnalyzerFormatting:
         analyzer.display_slack(results)
 
         captured = capsys.readouterr()
-        assert "Very Long..." in captured.out
+        assert "Very Long Project Name That Should Be Displayed" in captured.out
 
     def test_display_slack_without_percentage(
         self, capsys: pytest.CaptureFixture[str]
@@ -531,10 +531,9 @@ class TestTaskAnalyzerFormatting:
         # Should not contain percentage header when no percentage data
         assert "割合" not in header_line
 
-    def test_slack_header_formatting(self) -> None:
-        """Test Slack header formatting."""
+    def test_slack_header_formatting(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Test Slack header formatting via display_slack output."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
-        config = analyzer._get_analysis_config("project")
         results = [
             {
                 "project": "Test",
@@ -544,27 +543,30 @@ class TestTaskAnalyzerFormatting:
             }
         ]
 
-        headers = analyzer._get_slack_headers(config, results, None)
-        assert "プロジェクト" in headers
-        assert "時間" in headers
-        assert "タスク数" in headers
-        assert "|" in headers
+        analyzer.display_slack(results)
+        captured = capsys.readouterr()
+        assert "プロジェクト" in captured.out
+        assert "時間" in captured.out
+        assert "タスク数" in captured.out
+        assert "|" in captured.out
 
-    def test_slack_row_formatting(self) -> None:
-        """Test Slack row formatting."""
+    def test_slack_row_formatting(self, capsys: pytest.CaptureFixture[str]) -> None:
+        """Test Slack row formatting via display_slack output."""
         analyzer = TaskAnalyzer(Path("dummy.csv"))
-        config = analyzer._get_analysis_config("project")
-        result = {
-            "project": "Test Project",
-            "total_time": "01:30",
-            "task_count": "5",
-            "total_seconds": 5400,
-            "percentage": "75.0%",
-        }
+        results = [
+            {
+                "project": "Test Project",
+                "total_time": "01:30",
+                "task_count": "5",
+                "total_seconds": 5400,
+                "percentage": "75.0%",
+            }
+        ]
 
-        row = analyzer._format_slack_row(result, config, None)
-        assert "Test Project" in row
-        assert "01:30" in row
-        assert "5" in row
-        assert "75.0%" in row
-        assert "|" in row
+        analyzer.display_slack(results)
+        captured = capsys.readouterr()
+        assert "Test Project" in captured.out
+        assert "01:30" in captured.out
+        assert "5" in captured.out
+        assert "75.0%" in captured.out
+        assert "|" in captured.out

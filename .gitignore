@@ -210,3 +210,6 @@ tests/*.vtt
 tests/*.md
 
 tasks*.csv
+
+# Date files (YYYY-MM-DD.md format)
+[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].md

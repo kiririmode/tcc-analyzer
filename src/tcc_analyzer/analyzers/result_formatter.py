@@ -6,8 +6,8 @@ from typing import Any
 from rich.console import Console
 from rich.table import Table
 
-from .constants import MAX_SLACK_FIELD_LENGTH, TRUNCATED_LENGTH
 from .result_processor import ResultProcessor
+from .slack_formatter import SlackFormatter
 
 
 class ResultFormatter:
@@ -16,6 +16,7 @@ class ResultFormatter:
     def __init__(self) -> None:
         """Initialize the result formatter."""
         self.console = Console()
+        self.slack_formatter = SlackFormatter()
 
     def _prepare_results_with_percentage(
         self, results: list[dict[str, Any]], base_time: str | None
@@ -93,7 +94,13 @@ class ResultFormatter:
     ) -> None:
         """Display results in Slack-formatted message."""
         results = self._prepare_results_with_percentage(results, base_time)
-        slack_message = self._format_slack_message(results, analysis_type, base_time)
+        slack_message = self.slack_formatter.format_slack_message(
+            results,
+            analysis_type,
+            base_time,
+            self._get_analysis_config,
+            self._is_total_row,
+        )
         print(slack_message)
 
     def _get_analysis_config(self, analysis_type: str) -> dict[str, Any]:
@@ -143,16 +150,12 @@ class ResultFormatter:
     ) -> tuple[dict[str, Any], list[list[str]]]:
         """Prepare data for both table and CSV output."""
         config = self._get_analysis_config(analysis_type)
+        _, valid_fields = self._get_data_context(config, results, base_time)
 
-        # Prepare row data
         rows: list[list[str]] = []
         for result in results:
-            row_data: list[str] = []
-            for field in config["fields"]:
-                if field == "percentage" and field not in result:
-                    # Skip percentage field if not present in result
-                    continue
-                row_data.append(str(result[field]))
+            row_data = [str(result[field]) for field in valid_fields]
+
             # Add base_time percentage only if provided and different from internal %
             if base_time is not None and "percentage" not in config["fields"]:
                 row_data.append(str(result["percentage"]))
@@ -285,7 +288,7 @@ class ResultFormatter:
         base_time: str | None,
     ) -> str:
         """Build CSV header string based on data and configuration."""
-        has_percentage = bool(results and "percentage" in results[0])
+        has_percentage, _ = self._get_data_context(config, results, base_time)
         header_fields = self._get_csv_header_fields(config, has_percentage)
         header = ",".join(header_fields)
 
@@ -298,14 +301,8 @@ class ResultFormatter:
         self, config: dict[str, Any], has_percentage: bool
     ) -> list[str]:
         """Get CSV header field names."""
-        header_fields: list[str] = []
-
-        for field in config["fields"]:
-            if field == "percentage" and not has_percentage:
-                continue
-            header_fields.append(self._format_field_name(field))
-
-        return header_fields
+        valid_fields = self._get_valid_fields(config, has_percentage)
+        return [self._format_field_name(field) for field in valid_fields]
 
     def _format_field_name(self, field: str) -> str:
         """Format field name for CSV header."""
@@ -327,112 +324,33 @@ class ResultFormatter:
         for row_values in rows:
             print(",".join(row_values))
 
-    def _format_slack_message(
-        self,
-        results: list[dict[str, Any]],
-        analysis_type: str,
-        base_time: str | None,
-    ) -> str:
-        """Format results as Slack message."""
-        config = self._get_analysis_config(analysis_type)
-
-        # Build enhanced header
-        header_parts = ["⏰ TaskChute Cloud 分析レポート"]
-        if base_time is not None:
-            header_parts.append(f"(基準時間: {base_time})")
-        header = " ".join(header_parts)
-
-        # Build analysis type description
-        type_descriptions = {
-            "project": "📂 プロジェクト別",
-            "mode": "🎯 モード別",
-            "project-mode": "📂🎯 プロジェクト×モード別",  # noqa: RUF001
-        }
-        description = f"*{type_descriptions.get(analysis_type, analysis_type)}時間分析*"
-
-        # Build table with visual improvements
-        table_lines = ["", "```"]
-        headers = self._get_slack_headers(config, results, base_time)
-        table_lines.append(headers)
-        table_lines.append("-" * len(headers))
-
-        # Add data rows including total row with enhanced formatting
-        for i, result in enumerate(results):
-            row = self._format_slack_row(result, config, base_time)
-
-            # Add separator before total row
-            row_fields = [str(result.get(field, "")) for field in config["fields"]]
-            if self._is_total_row(i, row_fields, len(results)):
-                table_lines.append("-" * len(headers))
-
-            table_lines.append(row)
-
-        table_lines.append("```")
-
-        # Combine all sections
-        all_lines = [header, "", description, *table_lines]
-        return "\n".join(all_lines)
-
     def _should_include_percentage_field(
         self, field: str, has_percentage: bool
     ) -> bool:
         """Check if percentage field should be included."""
         return not (field == "percentage" and not has_percentage)
 
-    def _get_slack_headers(
+    def _get_valid_fields(
+        self, config: dict[str, Any], has_percentage: bool
+    ) -> list[str]:
+        """Get list of valid fields that should be included."""
+        valid_fields: list[str] = []
+        for field in config["fields"]:
+            if self._should_include_percentage_field(field, has_percentage):
+                valid_fields.append(field)
+        return valid_fields
+
+    def _get_data_context(
         self,
         config: dict[str, Any],
         results: list[dict[str, Any]],
-        base_time: str | None,
-    ) -> str:
-        """Generate Slack table headers."""
-        headers: list[str] = []
+        base_time: str | None = None,
+    ) -> tuple[bool, list[str]]:
+        """Get common data context used across multiple methods."""
+        _ = base_time  # Parameter required for compatibility but not used
         has_percentage = bool(results and "percentage" in results[0])
-
-        for field in config["fields"]:
-            if self._should_include_percentage_field(field, has_percentage):
-                headers.append(self._get_slack_header_name(field))
-
-        # Add base time percentage header if needed
-        if base_time is not None and not has_percentage:
-            headers.append("基準%")
-
-        return " | ".join(f"{h:>12}" for h in headers)
-
-    def _get_slack_header_name(self, field: str) -> str:
-        """Get Slack-formatted header name for field."""
-        header_mapping = {
-            "project": "プロジェクト",
-            "mode": "モード",
-            "total_time": "時間",
-            "task_count": "タスク数",
-            "percentage": "割合",
-        }
-        return header_mapping.get(field, field)
-
-    def _format_slack_row(
-        self,
-        result: dict[str, Any],
-        config: dict[str, Any],
-        base_time: str | None,
-    ) -> str:
-        """Format a single result row for Slack."""
-        row_data: list[str] = []
-        has_percentage = "percentage" in result
-
-        for field in config["fields"]:
-            if self._should_include_percentage_field(field, has_percentage):
-                value = str(result.get(field, ""))
-                # Truncate long project/mode names for Slack readability
-                if field in ["project", "mode"] and len(value) > MAX_SLACK_FIELD_LENGTH:
-                    value = value[:TRUNCATED_LENGTH] + "..."
-                row_data.append(f"{value:>12}")
-
-        # Add base time percentage if needed
-        if base_time is not None and not has_percentage:
-            row_data.append(f"{result.get('percentage', ''):>12}")
-
-        return " | ".join(row_data)
+        valid_fields = self._get_valid_fields(config, has_percentage)
+        return has_percentage, valid_fields
 
     # Public methods for backward compatibility
     def get_analysis_config(self, analysis_type: str) -> dict[str, Any]:
@@ -448,21 +366,3 @@ class ResultFormatter:
     def is_total_row(self, index: int, row_data: list[str], total_rows: int) -> bool:
         """Check if the current row is a total row."""
         return self._is_total_row(index, row_data, total_rows)
-
-    def get_slack_headers(
-        self,
-        config: dict[str, Any],
-        results: list[dict[str, Any]],
-        base_time: str | None,
-    ) -> str:
-        """Generate Slack table headers."""
-        return self._get_slack_headers(config, results, base_time)
-
-    def format_slack_row(
-        self,
-        result: dict[str, Any],
-        config: dict[str, Any],
-        base_time: str | None,
-    ) -> str:
-        """Format a single result row for Slack."""
-        return self._format_slack_row(result, config, base_time)
