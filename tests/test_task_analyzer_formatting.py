@@ -481,13 +481,13 @@ class TestTaskAnalyzerFormatting:
         assert "01:30" in captured.out
         assert "60.0%" in captured.out
 
-    def test_display_slack_long_names_truncation(
+    def test_display_slack_long_names_no_truncation(
         self, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        """Test Slack output truncates long project/mode names."""
+        """Test Slack output displays full project/mode names without truncation."""
         results = [
             {
-                "project": "Very Long Project Name That Should Be Truncated",
+                "project": "Very Long Project Name That Should Be Displayed",
                 "total_time": "01:30",
                 "task_count": "2",
                 "total_seconds": 5400,
@@ -499,7 +499,7 @@ class TestTaskAnalyzerFormatting:
         analyzer.display_slack(results)
 
         captured = capsys.readouterr()
-        assert "Very Long..." in captured.out
+        assert "Very Long Project Name That Should Be Displayed" in captured.out
 
     def test_display_slack_without_percentage(
         self, capsys: pytest.CaptureFixture[str]
